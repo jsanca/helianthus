@@ -1,0 +1,8 @@
+helianthus/core/FormatterException.class
+helianthus/core/marshall/csv/CSVFormatter.class
+helianthus/core/marshall/html/HTMLTableFormatter.class
+helianthus/core/util/BeanUtils.class
+helianthus/core/marshall/csv/config/CSVConfig.class
+helianthus/core/marshall/html/config/HTMLConfig.class
+helianthus/core/marshall/html/HTMLFormatter.class
+helianthus/core/marshall/csv/CSVTableFormatter.class
