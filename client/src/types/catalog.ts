@@ -27,11 +27,33 @@ export interface OperationDefinition {
   queryRef?: string
   query?: string
   datasource?: string
-  parameters?: ParameterDefinition[]
+  label?: string
+  description?: string
+  parameters?: ParameterDefinitionWithMetadata[]
   configurations: Record<string, ConfigurationDefinition>
 }
 
+export interface ParameterDefinitionWithMetadata {
+  name: string
+  type: string
+  required?: boolean
+  label?: string
+  description?: string
+  placeholder?: string
+  input?: InputDefinition
+}
+
+export interface InputDefinition {
+  kind: 'text' | 'number' | 'select' | 'boolean' | 'date'
+  options?: string[]
+  min?: number
+  max?: number
+  step?: number
+}
+
 export interface ConfigurationDefinition {
+  label?: string
+  description?: string
   pipeline?: Array<Record<string, unknown>>
 }
 

@@ -1,20 +1,21 @@
 operations:
   all-products:
-    query: SELECT * FROM products ORDER BY id
+    query: SELECT * FROM products ORDER BY PRODUCTCODE
     configurations:
       default:
         pipeline:
           - limit: 100
 
   get-product:
-    query: SELECT * FROM products WHERE code = ?
+    query: SELECT * FROM products WHERE PRODUCTCODE = ?
     parameters:
       - name: productCode
         type: string
+        required: true
     configurations:
       default:
         pipeline:
-          - limit: 100
+          - limit: 1
 
   products:
     queryRef: products.base
@@ -24,11 +25,36 @@ operations:
           - limit: 100
       compact:
         pipeline:
-          - project: [ID, CODE, NAME]
+          - project: [PRODUCTCODE, PRODUCTNAME, PRODUCTLINE]
           - limit: 50
+      expensive:
+        pipeline:
+          - filter:
+              BUYPRICE:
+                gt: 50
+          - project: [PRODUCTCODE, PRODUCTNAME, BUYPRICE]
+          - limit: 100
+
+  productlines:
+    queryRef: productlines.base
+    configurations:
+      default:
+        pipeline:
+          - limit: 100
+
+  product:
+    query: SELECT * FROM products WHERE PRODUCTCODE = ?
+    parameters:
+      - name: productCode
+        type: string
+        required: true
+    configurations:
+      default:
+        pipeline:
+          - limit: 1
 
   admin-only:
-    query: SELECT * FROM products ORDER BY id
+    query: SELECT * FROM products ORDER BY PRODUCTCODE
     security:
       roles: [ADMIN]
     configurations:
@@ -39,4 +65,7 @@ operations:
 queries:
   products.base:
     datasource: default
-    sql: SELECT * FROM products ORDER BY id
+    sql: SELECT * FROM products ORDER BY PRODUCTCODE
+  productlines.base:
+    datasource: default
+    sql: SELECT * FROM productlines ORDER BY PRODUCTLINE

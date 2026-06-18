@@ -26,6 +26,24 @@ input {
   font: inherit;
 }
 
+.auth-loading,
+.workspace-loading {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  align-content: center;
+  gap: 18px;
+  color: #53645a;
+  background: #f3f6f3;
+}
+
+.workspace-loading {
+  min-height: 420px;
+  border: 1px solid #e0e7e1;
+  border-radius: 14px;
+  background: white;
+}
+
 .eyebrow {
   display: block;
   margin-bottom: 8px;
@@ -166,6 +184,10 @@ input {
 
 .login-card .ant-form {
   margin-top: 28px;
+}
+
+.login-alert {
+  margin: 24px 0;
 }
 
 .login-card .ant-form-item-label > label,
@@ -319,6 +341,11 @@ input {
     #f3f6f3;
 }
 
+.catalog-alert {
+  width: min(100%, 1480px);
+  margin: 0 auto 20px;
+}
+
 .runner {
   width: min(100%, 1480px);
   margin: 0 auto;
@@ -453,11 +480,31 @@ input {
   gap: 16px;
 }
 
-.result-meta > .ant-typography {
-  max-width: 52%;
+.result-url {
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.result-tabs .ant-tabs-nav {
+  margin-bottom: 12px;
+}
+
+.result-table .ant-table {
+  border: 1px solid #e1e8e3;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.result-table .ant-table-cell {
+  max-width: 360px;
+}
+
+.column-type {
+  font-size: 10px;
+  font-weight: 400;
+  text-transform: uppercase;
 }
 
 .code-result {
@@ -550,5 +597,13 @@ input {
 
   .result-meta > .ant-typography {
     max-width: 100%;
+  }
+
+  .result-meta > .ant-space:last-child {
+    width: 100%;
+  }
+
+  .result-meta > .ant-space:last-child .ant-btn {
+    flex: 1;
   }
 }

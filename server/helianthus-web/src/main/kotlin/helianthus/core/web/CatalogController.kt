@@ -24,20 +24,33 @@ class CatalogController(
         val operations = visibleOps.map { (name, op) ->
             OperationSummary(
                 name = name,
-                type = when {
-                    op.queryRef != null -> "queryRef"
-                    op.query != null -> "query"
-                    else -> "unknown"
-                },
-                queryRef = op.queryRef,
+                label = op.label,
+                description = op.description,
                 datasource = op.datasource,
                 parameters = op.parameters.map { p ->
-                    ParameterInfo(name = p.name, type = p.type, required = p.required)
+                    ParameterInfo(
+                        name = p.name,
+                        type = p.type,
+                        required = p.required,
+                        label = p.label,
+                        description = p.description,
+                        placeholder = p.placeholder,
+                        input = p.input?.let {
+                            InputInfo(
+                                kind = it.kind,
+                                options = it.options,
+                                min = it.min,
+                                max = it.max,
+                                step = it.step
+                            )
+                        }
+                    )
                 },
                 configurations = op.configurations.map { (configName, config) ->
                     ConfigurationSummary(
                         name = configName,
-                        pipeline = config.pipeline
+                        label = config.label,
+                        description = config.description
                     )
                 }
             )
@@ -59,8 +72,8 @@ data class CatalogResponse(
 
 data class OperationSummary(
     val name: String,
-    val type: String,
-    val queryRef: String?,
+    val label: String?,
+    val description: String?,
     val datasource: String?,
     val parameters: List<ParameterInfo>,
     val configurations: List<ConfigurationSummary>
@@ -69,10 +82,23 @@ data class OperationSummary(
 data class ParameterInfo(
     val name: String,
     val type: String,
-    val required: Boolean
+    val required: Boolean,
+    val label: String?,
+    val description: String?,
+    val placeholder: String?,
+    val input: InputInfo?
+)
+
+data class InputInfo(
+    val kind: String,
+    val options: List<String>?,
+    val min: Number?,
+    val max: Number?,
+    val step: Number?
 )
 
 data class ConfigurationSummary(
     val name: String,
-    val pipeline: helianthus.core.pipeline.PipelineConfig
+    val label: String?,
+    val description: String?
 )

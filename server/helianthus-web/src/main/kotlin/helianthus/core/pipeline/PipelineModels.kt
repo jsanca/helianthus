@@ -41,10 +41,12 @@ data class ResolvedOperation(
  *
  * @property name the parameter name used in the SQL
  * @property type the expected type for coercion (defaults to "string")
+ * @property required whether the parameter must be provided (defaults to false)
  */
 data class ParameterDefinition(
     val name: String,
-    val type: String = "string"
+    val type: String = "string",
+    val required: Boolean = false
 )
 
 /**

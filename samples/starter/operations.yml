@@ -18,16 +18,24 @@ queries:
 
 operations:
   products:
+    label: Products
+    description: Product catalog operations
     queryRef: products.base
     configurations:
       default:
+        label: Default
+        description: Standard product list
         pipeline:
           - limit: 100
       compact:
+        label: Compact
+        description: Projected columns only
         pipeline:
           - project: [productCode, productName, productLine]
           - limit: 50
       expensive:
+        label: Expensive
+        description: Products over $50
         pipeline:
           - filter:
               buyPrice:
@@ -36,18 +44,28 @@ operations:
           - limit: 100
 
   productlines:
+    label: Product Lines
+    description: Browse product line categories
     queryRef: productlines.base
     configurations:
       default:
+        label: Default
         pipeline:
           - limit: 100
 
   product:
+    label: Single Product
+    description: Look up a specific product by code
     query: SELECT * FROM products WHERE productCode = ?
+    parameters:
       - name: productCode
         type: string
-    query: SELECT * FROM products WHERE productCode = ?
+        required: true
+        label: Product code
+        description: The unique product identifier
+        placeholder: S10_1678
     configurations:
       default:
+        label: Default
         pipeline:
           - limit: 1

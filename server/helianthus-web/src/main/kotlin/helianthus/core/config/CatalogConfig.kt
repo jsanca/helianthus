@@ -5,6 +5,7 @@ import helianthus.core.access.impl.db.JdbcGenericDataAccess
 import helianthus.core.catalog.AppMetadata
 import helianthus.core.catalog.ConfigurationDef
 import helianthus.core.catalog.DatasourceDef
+import helianthus.core.catalog.InputDef
 import helianthus.core.catalog.OperationCatalog
 import helianthus.core.catalog.OperationDef
 import helianthus.core.catalog.ParameterDef
@@ -129,7 +130,11 @@ class CatalogConfig(
             ParameterDef(
                 name = p["name"] as? String ?: "",
                 type = p["type"] as? String ?: "string",
-                required = p["required"] as? Boolean ?: false
+                required = p["required"] as? Boolean ?: false,
+                label = p["label"] as? String,
+                description = p["description"] as? String,
+                placeholder = p["placeholder"] as? String,
+                input = parseInputDef(p["input"])
             )
         } ?: emptyList()
 
@@ -139,9 +144,24 @@ class CatalogConfig(
             queryRef = raw["queryRef"] as? String,
             query = raw["query"] as? String,
             datasource = raw["datasource"] as? String,
+            label = raw["label"] as? String,
+            description = raw["description"] as? String,
             parameters = params,
             security = parseSecurity(raw["security"]),
             configurations = configurations
+        )
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun parseInputDef(raw: Any?): InputDef? {
+        if (raw == null) return null
+        val map = raw as? Map<String, Any> ?: return null
+        return InputDef(
+            kind = map["kind"] as? String ?: "text",
+            options = (map["options"] as? List<*>)?.map { it.toString() },
+            min = map["min"] as? Number,
+            max = map["max"] as? Number,
+            step = map["step"] as? Number
         )
     }
 
@@ -156,6 +176,8 @@ class CatalogConfig(
         return map.mapValues { (_, def) ->
             val pipelineSteps = (def["pipeline"] as? List<Map<String, Any>>) ?: emptyList()
             ConfigurationDef(
+                label = def["label"] as? String,
+                description = def["description"] as? String,
                 security = parseSecurity(def["security"]),
                 pipeline = PipelineConfig.fromYamlSteps(pipelineSteps)
             )

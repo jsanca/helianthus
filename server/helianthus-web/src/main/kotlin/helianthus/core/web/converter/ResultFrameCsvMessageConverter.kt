@@ -1,6 +1,8 @@
 package helianthus.core.web.converter
 
 import helianthus.core.result.ResultFrame
+import org.apache.commons.csv.CSVFormat
+import org.apache.commons.csv.QuoteMode
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpInputMessage
 import org.springframework.http.HttpOutputMessage
@@ -21,7 +23,24 @@ class ResultFrameCsvMessageConverter : AbstractHttpMessageConverter<ResultFrame>
     @Throws(HttpMessageNotWritableException::class, IOException::class)
     override fun writeInternal(resultFrame: ResultFrame, outputMessage: HttpOutputMessage) {
         log.debug("Writing ResultFrame as CSV: {} rows", resultFrame.metadata.rowCount)
-        TODO("CSV rendering not yet implemented")
+        
+        val columns = resultFrame.schema.columns
+        val headers = columns.map { it.name }.toTypedArray()
+        
+        val format = CSVFormat.DEFAULT
+            .builder()
+            .setHeader(*headers)
+            .setQuoteMode(QuoteMode.MINIMAL)
+            .build()
+        
+        outputMessage.body.writer().use { writer ->
+            format.print(writer).use { printer ->
+                resultFrame.rows.forEach { row ->
+                    val values = columns.map { col -> row[col.name] }
+                    printer.printRecord(values)
+                }
+            }
+        }
     }
 
     @Throws(HttpMessageNotReadableException::class, IOException::class)

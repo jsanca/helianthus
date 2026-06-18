@@ -435,6 +435,6 @@ class PipelineStepTest {
         assertNotNull(result.boundParameters)
         assertEquals(2, result.boundParameters!!.values.size)
         assertEquals("Alice", result.boundParameters!!.values["name"])
-        assertEquals("30", result.boundParameters!!.values["age"])
+        assertEquals(30L, result.boundParameters!!.values["age"])
     }
 }

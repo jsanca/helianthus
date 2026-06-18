@@ -12,6 +12,7 @@
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
     "antd": "^6.1.0",
+    "keycloak-js": "^26.2.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

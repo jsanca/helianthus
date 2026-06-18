@@ -2,6 +2,8 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ConfigProvider } from 'antd'
 import App from './App'
+import { ApiProvider } from './api/ApiContext'
+import { AuthProvider } from './auth/AuthContext'
 import './styles.css'
 
 createRoot(document.getElementById('root')!).render(
@@ -34,7 +36,11 @@ createRoot(document.getElementById('root')!).render(
         },
       }}
     >
-      <App />
+      <AuthProvider>
+        <ApiProvider>
+          <App />
+        </ApiProvider>
+      </AuthProvider>
     </ConfigProvider>
   </StrictMode>,
 )

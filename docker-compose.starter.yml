@@ -25,6 +25,7 @@ services:
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HOSTNAME: http://localhost:8081
     ports:
       - "8081:8080"
     volumes:
@@ -47,7 +48,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-helianthus}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-helianthus}
       HELIANTHUS_CATALOG_PATH: file:/app/operations-starter.yml
-      HELIANTHUS_OIDC_ISSUER_URI: http://keycloak:8080/realms/helianthus
+      HELIANTHUS_OIDC_ISSUER_URI: http://localhost:8081/realms/helianthus
+      HELIANTHUS_OIDC_JWK_SET_URI: http://keycloak:8080/realms/helianthus/protocol/openid-connect/certs
+      HELIANTHUS_ALLOWED_ORIGINS: http://localhost:5173
     ports:
       - "8080:8080"
     volumes:
@@ -57,6 +60,22 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8080
+        VITE_KEYCLOAK_URL: http://localhost:8081
+        VITE_KEYCLOAK_REALM: helianthus
+        VITE_KEYCLOAK_CLIENT_ID: helianthus-client
+    container_name: helianthus-starter-client
+    ports:
+      - "5173:80"
+    depends_on:
+      - server
+      - keycloak
 
 volumes:
   starter_pgdata:

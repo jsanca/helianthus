@@ -1,7 +1,5 @@
 import {
-  DeleteOutlined,
   LinkOutlined,
-  PlusOutlined,
   SendOutlined,
 } from '@ant-design/icons'
 import {
@@ -9,7 +7,7 @@ import {
   Button,
   Card,
   Col,
-  Input,
+  Form,
   Row,
   Select,
   Space,
@@ -18,76 +16,50 @@ import {
   Typography,
 } from 'antd'
 import { useMemo, useState } from 'react'
+import { ApiError, type ApiClient } from '../api/client'
+import { appConfig } from '../config'
 import type { Catalog, OperationSelection } from '../types/catalog'
+import { ParameterInput } from './ParameterInput'
 import { ResultViewer, type ExecutionResult } from './ResultViewer'
 
 type ResultFormat = 'json' | 'csv' | 'xml' | 'html'
 
-interface ParameterRow {
-  id: number
-  key: string
-  value: string
+interface ParameterValues {
+  [key: string]: string | number | boolean | null
 }
 
 interface OperationRunnerProps {
   catalog: Catalog
   selection: OperationSelection
+  api: ApiClient
 }
 
-const createEmptyRows = (count: number): ParameterRow[] =>
-  Array.from({ length: count }, (_, index) => ({
-    id: Date.now() + index,
-    key: '',
-    value: '',
-  }))
-
-const createParameterRows = (
-  parameters: Array<{ name?: string }> = [],
-): ParameterRow[] => {
-  const rows = createEmptyRows(Math.max(5, parameters.length))
-  parameters.forEach((parameter, index) => {
-    rows[index].key = parameter.name ?? ''
-  })
-  return rows
-}
-
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(
-  /\/$/,
-  '',
-)
-
-export function OperationRunner({ catalog, selection }: OperationRunnerProps) {
+export function OperationRunner({ catalog, selection, api }: OperationRunnerProps) {
   const operation = catalog.operations[selection.operationId]
   const configuration = operation.configurations[selection.configurationId]
   const [format, setFormat] = useState<ResultFormat>('json')
-  const [parameters, setParameters] = useState<ParameterRow[]>(() =>
-    createParameterRows(operation.parameters),
-  )
+  const [parameterValues, setParameterValues] = useState<ParameterValues>({})
   const [result, setResult] = useState<ExecutionResult | null>(null)
   const [loading, setLoading] = useState(false)
+
+  const parameters = operation.parameters || []
 
   const requestUrl = useMemo(() => {
     const path = `/api/op/${encodeURIComponent(selection.operationId)}/${encodeURIComponent(
       selection.configurationId,
     )}.${format}`
     const query = new URLSearchParams()
-    parameters.forEach((parameter) => {
-      if (parameter.key.trim()) {
-        query.append(parameter.key.trim(), parameter.value)
+    Object.entries(parameterValues).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        query.append(key, String(value))
       }
     })
     const queryString = query.toString()
-    return `${apiBaseUrl}${path}${queryString ? `?${queryString}` : ''}`
-  }, [format, parameters, selection])
+    return `${appConfig.apiBaseUrl}${path}${queryString ? `?${queryString}` : ''}`
+  }, [format, parameterValues, selection])
 
-  const updateParameter = (
-    id: number,
-    field: 'key' | 'value',
-    value: string,
-  ) => {
-    setParameters((rows) =>
-      rows.map((row) => (row.id === id ? { ...row, [field]: value } : row)),
-    )
+  const updateParameter = (name: string, value: string | number | boolean | null) => {
+    setParameterValues((prev) => ({ ...prev, [name]: value }))
   }
 
   const execute = async () => {
@@ -96,18 +68,18 @@ export function OperationRunner({ catalog, selection }: OperationRunnerProps) {
     const startedAt = performance.now()
 
     try {
-      const response = await fetch(requestUrl, {
-        headers: {
-          Accept:
-            format === 'json'
-              ? 'application/json'
-              : format === 'html'
-                ? 'text/html'
-                : format === 'csv'
-                  ? 'text/csv'
-                  : 'application/xml',
-        },
+      const params = new URLSearchParams()
+      Object.entries(parameterValues).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+          params.append(key, String(value))
+        }
       })
+      const { response, url } = await api.execute(
+        selection.operationId,
+        selection.configurationId,
+        format,
+        params,
+      )
       const body = await response.text()
       setResult({
         body,
@@ -117,17 +89,27 @@ export function OperationRunner({ catalog, selection }: OperationRunnerProps) {
         ok: response.ok,
         status: response.status,
         statusText: response.statusText,
-        url: requestUrl,
+        url,
       })
     } catch (error) {
+      const apiError = error instanceof ApiError ? error : null
       setResult({
-        body: error instanceof Error ? error.message : 'The request could not be completed.',
+        body:
+          apiError?.body ||
+          (error instanceof Error
+            ? error.message
+            : 'The request could not be completed.'),
         contentType: 'text/plain',
         durationMs: Math.round(performance.now() - startedAt),
         format,
         ok: false,
-        status: 0,
-        statusText: 'Network error',
+        status: apiError?.status ?? 0,
+        statusText:
+          apiError?.kind === 'unauthenticated'
+            ? 'Unauthenticated'
+            : apiError?.kind === 'forbidden'
+              ? 'Forbidden'
+              : 'Network error',
         url: requestUrl,
       })
     } finally {
@@ -141,12 +123,16 @@ export function OperationRunner({ catalog, selection }: OperationRunnerProps) {
         <div>
           <Typography.Text className="eyebrow">Operation runner</Typography.Text>
           <Space align="baseline" wrap>
-            <Typography.Title level={2}>{selection.operationId}</Typography.Title>
+            <Typography.Title level={2}>
+              {operation.label || selection.operationId}
+            </Typography.Title>
             <Tag>{selection.configurationId}</Tag>
           </Space>
-          <Typography.Paragraph type="secondary">
-            Configure the request, choose a representation, and run it against the API.
-          </Typography.Paragraph>
+          {operation.description && (
+            <Typography.Paragraph type="secondary">
+              {operation.description}
+            </Typography.Paragraph>
+          )}
         </div>
         <div className="datasource-chip">
           <Typography.Text type="secondary">Datasource</Typography.Text>
@@ -156,60 +142,39 @@ export function OperationRunner({ catalog, selection }: OperationRunnerProps) {
 
       <Row gutter={[20, 20]}>
         <Col xs={24} xl={15}>
-          <Card
-            title="Parameters"
-            extra={
-              <Button
-                type="text"
-                icon={<PlusOutlined />}
-                onClick={() =>
-                  setParameters((rows) => [...rows, ...createEmptyRows(1)])
-                }
-              >
-                Add row
-              </Button>
-            }
-          >
-            <div className="parameter-header" aria-hidden="true">
-              <span>Key</span>
-              <span>Value</span>
-              <span />
-            </div>
-            <div className="parameter-list">
-              {parameters.map((parameter, index) => (
-                <div className="parameter-row" key={parameter.id}>
-                  <Input
-                    aria-label={`Parameter ${index + 1} key`}
-                    placeholder="parameter"
-                    value={parameter.key}
-                    onChange={(event) =>
-                      updateParameter(parameter.id, 'key', event.target.value)
+          <Card title="Parameters">
+            {parameters.length === 0 ? (
+              <Typography.Text type="secondary">
+                This operation has no parameters.
+              </Typography.Text>
+            ) : (
+              <Form layout="vertical">
+                {parameters.map((param) => (
+                  <Form.Item
+                    key={param.name}
+                    label={
+                      <Space direction="vertical" size={0}>
+                        <Typography.Text strong>
+                          {param.label || param.name}
+                          {param.required && <span style={{ color: '#ff4d4f' }}> *</span>}
+                        </Typography.Text>
+                        {param.description && (
+                          <Typography.Text type="secondary" style={{ fontSize: '12px' }}>
+                            {param.description}
+                          </Typography.Text>
+                        )}
+                      </Space>
                     }
-                  />
-                  <Input
-                    aria-label={`Parameter ${index + 1} value`}
-                    placeholder="value"
-                    value={parameter.value}
-                    onChange={(event) =>
-                      updateParameter(parameter.id, 'value', event.target.value)
-                    }
-                    onPressEnter={execute}
-                  />
-                  <Button
-                    aria-label={`Remove parameter row ${index + 1}`}
-                    type="text"
-                    danger
-                    icon={<DeleteOutlined />}
-                    disabled={parameters.length === 1}
-                    onClick={() =>
-                      setParameters((rows) =>
-                        rows.filter((row) => row.id !== parameter.id),
-                      )
-                    }
-                  />
-                </div>
-              ))}
-            </div>
+                  >
+                    <ParameterInput
+                      parameter={param}
+                      value={parameterValues[param.name] ?? null}
+                      onChange={(value) => updateParameter(param.name, value)}
+                    />
+                  </Form.Item>
+                ))}
+              </Form>
+            )}
           </Card>
         </Col>
 
@@ -251,7 +216,7 @@ export function OperationRunner({ catalog, selection }: OperationRunnerProps) {
               Execute operation
             </Button>
             <Typography.Text className="api-base-note" type="secondary">
-              API base: {apiBaseUrl}
+              API base: {appConfig.apiBaseUrl}
             </Typography.Text>
           </Card>
         </Col>

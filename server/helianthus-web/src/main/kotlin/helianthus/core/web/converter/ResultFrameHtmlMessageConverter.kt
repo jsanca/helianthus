@@ -13,6 +13,7 @@ import java.io.IOException
 class ResultFrameHtmlMessageConverter : AbstractHttpMessageConverter<ResultFrame>(MediaType.TEXT_HTML) {
 
     private val log = LoggerFactory.getLogger(ResultFrameHtmlMessageConverter::class.java)
+    private val renderer = ResultFrameHtmlRenderer()
 
     override fun supports(clazz: Class<*>): Boolean {
         return ResultFrame::class.java.isAssignableFrom(clazz)
@@ -21,7 +22,8 @@ class ResultFrameHtmlMessageConverter : AbstractHttpMessageConverter<ResultFrame
     @Throws(HttpMessageNotWritableException::class, IOException::class)
     override fun writeInternal(resultFrame: ResultFrame, outputMessage: HttpOutputMessage) {
         log.debug("Writing ResultFrame as HTML: {} rows", resultFrame.metadata.rowCount)
-        TODO("HTML rendering not yet implemented")
+        val html = renderer.render(resultFrame)
+        outputMessage.body.writer().use { it.write(html) }
     }
 
     @Throws(HttpMessageNotReadableException::class, IOException::class)

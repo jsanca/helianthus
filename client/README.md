@@ -10,8 +10,14 @@ npm install
 npm run dev
 ```
 
-The application defaults to `http://localhost:8080` for API requests. Override it
-with `VITE_API_BASE_URL`.
+The application reads:
+
+- `VITE_API_BASE_URL`
+- `VITE_KEYCLOAK_URL`
+- `VITE_KEYCLOAK_REALM`
+- `VITE_KEYCLOAK_CLIENT_ID`
+
+The defaults match `docker-compose.starter.yml`.
 
 ## Commands
 
@@ -22,5 +28,11 @@ npm run preview
 npm run lint
 ```
 
-Authentication and the catalog are placeholders. Both login paths are local-only,
-and the operation tree currently reads from `src/data/mockCatalog.ts`.
+Keycloak uses authorization code flow with PKCE. Authenticated API calls include a
+Bearer token. Guest mode can call public health and falls back to the mock catalog
+when the protected catalog endpoint returns 401 or 403.
+
+The starter realm provides:
+
+- `admin` / `admin` with the `ADMIN` role
+- `guest` / `guest` with the `GUEST` role

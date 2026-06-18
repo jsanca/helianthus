@@ -26,7 +26,6 @@ class HelianthusController(
     private val pipelineFactory: PipelineFactory,
     private val permissionEvaluator: OperationPermissionEvaluator
 ) {
-    // ...logging and handle method follow {
 
     companion object {
         private val log = LoggerFactory.getLogger(HelianthusController::class.java)
@@ -42,6 +41,7 @@ class HelianthusController(
         ]
     )
     fun handle(request: HttpServletRequest): ResponseEntity<ResultFrame> {
+        val startTime = System.currentTimeMillis()
 
         val pathResult = pathHandler.parsePath(request.servletPath)
 
@@ -54,12 +54,26 @@ class HelianthusController(
         val auth = SecurityContextHolder.getContext().authentication
             ?: throw AccessDeniedException("Not authenticated")
 
+        val username = auth.name
+        val roles = auth.authorities.map { it.authority }
+
+        log.debug(
+            "Operation request: operationId={} configurationId={} format={} user={} roles={}",
+            operationId, configurationId, format, username, roles
+        )
+
         // Check operation exists before checking permissions (404 vs 403)
         if (!catalog.operations.containsKey(operationId)) {
             throw NoMappingException("Operation not found: $operationId")
         }
 
-        if (!permissionEvaluator.checkPermission(auth, operationId, configurationId)) {
+        val permitted = permissionEvaluator.checkPermission(auth, operationId, configurationId)
+        log.debug(
+            "Permission check: operationId={} configurationId={} user={} permitted={}",
+            operationId, configurationId, username, permitted
+        )
+        
+        if (!permitted) {
             throw AccessDeniedException(
                 "Access denied to operation '$operationId' configuration '$configurationId'"
             )
@@ -72,8 +86,10 @@ class HelianthusController(
             params = extractParams(request)
         )
 
-        log.debug("Executing operation: {} config: {} format: {}",
-                operationRequest.operationId, configurationId, format)
+        log.debug(
+            "Executing pipeline: operationId={} configurationId={} format={} paramCount={}",
+            operationId, configurationId, format, operationRequest.params.size
+        )
 
         val pipeline = pipelineFactory.createPipeline(operationRequest)
         val context = PipelineContext(operationRequest)
@@ -85,6 +101,12 @@ class HelianthusController(
 
         val resultFrame = result.resultFrame
                 ?: throw IllegalStateException("Pipeline produced no result")
+
+        val duration = System.currentTimeMillis() - startTime
+        log.info(
+            "Operation executed: operationId={} configurationId={} format={} rowCount={} duration={}ms user={}",
+            operationId, configurationId, format, resultFrame.metadata.rowCount, duration, username
+        )
 
         val mediaType = when (format) {
             "json" -> MediaType.APPLICATION_JSON

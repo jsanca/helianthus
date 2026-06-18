@@ -1,17 +1,12 @@
 import {
   ArrowRightOutlined,
-  LockOutlined,
   SafetyCertificateOutlined,
-  UserOutlined,
 } from '@ant-design/icons'
-import { Button, Card, Form, Input, Typography } from 'antd'
-import type { SessionMode } from '../App'
+import { Alert, Button, Card, Typography } from 'antd'
+import { useAuth } from '../auth/AuthContext'
 
-interface LoginScreenProps {
-  onLogin: (mode: SessionMode) => void
-}
-
-export function LoginScreen({ onLogin }: LoginScreenProps) {
+export function LoginScreen() {
+  const { login, continueAsGuest, error } = useAuth()
   return (
     <main className="login-shell">
       <section className="login-intro">
@@ -26,7 +21,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         </Typography.Paragraph>
         <div className="login-feature">
           <SafetyCertificateOutlined />
-          <span>Authentication wiring is coming later. This screen is local only.</span>
+          <span>Secure sign-in is provided by Keycloak using authorization code + PKCE.</span>
         </div>
       </section>
 
@@ -34,42 +29,38 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         <Typography.Text className="eyebrow">Admin console</Typography.Text>
         <Typography.Title level={2}>Welcome back</Typography.Title>
         <Typography.Paragraph type="secondary">
-          Use any credentials to enter the admin placeholder.
+          Sign in to load the operations available to your account.
         </Typography.Paragraph>
 
-        <Form layout="vertical" onFinish={() => onLogin('admin')} requiredMark={false}>
-          <Form.Item
-            label="Username"
-            name="username"
-            rules={[{ required: true, message: 'Enter a username' }]}
-          >
-            <Input prefix={<UserOutlined />} placeholder="admin" autoComplete="username" />
-          </Form.Item>
-          <Form.Item
-            label="Password"
-            name="password"
-            rules={[{ required: true, message: 'Enter a password' }]}
-          >
-            <Input.Password
-              prefix={<LockOutlined />}
-              placeholder="••••••••"
-              autoComplete="current-password"
-            />
-          </Form.Item>
-          <Button type="primary" htmlType="submit" block icon={<ArrowRightOutlined />}>
-            Sign in
-          </Button>
-        </Form>
+        {error && (
+          <Alert
+            className="login-alert"
+            type="warning"
+            showIcon
+            message="Identity provider unavailable"
+            description={error}
+          />
+        )}
+
+        <Button
+          type="primary"
+          block
+          icon={<ArrowRightOutlined />}
+          onClick={() => void login()}
+        >
+          Sign in with Keycloak
+        </Button>
 
         <div className="login-divider">
           <span>or</span>
         </div>
 
-        <Button block onClick={() => onLogin('guest')}>
+        <Button block onClick={continueAsGuest}>
           Continue as guest
         </Button>
         <Typography.Paragraph className="auth-note" type="secondary">
-          No account is created and no credentials are sent.
+          Guest mode can check health, but protected catalog and operation requests may
+          require sign-in.
         </Typography.Paragraph>
       </Card>
     </main>

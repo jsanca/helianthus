@@ -1,5 +1,6 @@
 package helianthus.core.web
 
+import helianthus.core.InvalidParameterException
 import helianthus.core.NoMappingException
 import helianthus.core.exception.InvalidOperationPathException
 import org.slf4j.LoggerFactory
@@ -47,6 +48,20 @@ class HelianthusExceptionHandler {
     fun handleNoMapping(ex: NoMappingException): ResponseEntity<String> {
         log.warn("Operation not found: {}", ex.message)
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .contentType(MediaType.TEXT_PLAIN)
+            .body(ex.message)
+    }
+
+    /**
+     * Handles parameter validation errors.
+     *
+     * @param ex the parameter exception
+     * @return 400 Bad Request with the validation message
+     */
+    @ExceptionHandler(InvalidParameterException::class)
+    fun handleInvalidParameter(ex: InvalidParameterException): ResponseEntity<String> {
+        log.warn("Invalid parameter: {}", ex.message)
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .contentType(MediaType.TEXT_PLAIN)
             .body(ex.message)
     }

@@ -1,17 +1,26 @@
-import { useState } from 'react'
+import { Spin, Typography } from 'antd'
+import { useAuth } from './auth/AuthContext'
 import { AdminLayout } from './components/AdminLayout'
 import { LoginScreen } from './components/LoginScreen'
 
-export type SessionMode = 'guest' | 'admin'
-
 function App() {
-  const [mode, setMode] = useState<SessionMode | null>(null)
+  const auth = useAuth()
 
-  if (!mode) {
-    return <LoginScreen onLogin={setMode} />
+  if (auth.status === 'initializing') {
+    return (
+      <main className="auth-loading">
+        <div className="brand-mark">H</div>
+        <Spin size="large" />
+        <Typography.Text>Connecting to Helianthus…</Typography.Text>
+      </main>
+    )
   }
 
-  return <AdminLayout mode={mode} onLogout={() => setMode(null)} />
+  if (!auth.mode) {
+    return <LoginScreen />
+  }
+
+  return <AdminLayout />
 }
 
 export default App

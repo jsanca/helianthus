@@ -93,6 +93,8 @@ data class OperationDef(
     val queryRef: String? = null,
     val query: String? = null,
     val datasource: String? = null,
+    val label: String? = null,
+    val description: String? = null,
     val parameters: List<ParameterDef> = emptyList(),
     val security: SecurityDef? = null,
     val configurations: Map<String, ConfigurationDef> = mapOf(
@@ -103,7 +105,19 @@ data class OperationDef(
 data class ParameterDef(
     val name: String,
     val type: String = "string",
-    val required: Boolean = false
+    val required: Boolean = false,
+    val label: String? = null,
+    val description: String? = null,
+    val placeholder: String? = null,
+    val input: InputDef? = null
+)
+
+data class InputDef(
+    val kind: String = "text",
+    val options: List<String>? = null,
+    val min: Number? = null,
+    val max: Number? = null,
+    val step: Number? = null
 )
 
 data class SecurityDef(
@@ -112,6 +126,8 @@ data class SecurityDef(
 )
 
 data class ConfigurationDef(
+    val label: String? = null,
+    val description: String? = null,
     val security: SecurityDef? = null,
     val pipeline: PipelineConfig = PipelineConfig()
 )

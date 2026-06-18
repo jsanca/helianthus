@@ -32,7 +32,7 @@ class ResolveStep(
         )
 
         val parameters = entry.parameters.map { p ->
-            ParameterDefinition(name = p.name, type = p.type)
+            ParameterDefinition(name = p.name, type = p.type, required = p.required)
         }
 
         context.resolvedOperation = ResolvedOperation(

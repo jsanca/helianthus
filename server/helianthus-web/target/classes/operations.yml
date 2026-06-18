@@ -8,52 +8,68 @@ datasources:
 queries:
   products.base:
     datasource: default
-    sql: |
-      SELECT * FROM classicmodels.products
+    sql: SELECT * FROM classicmodels.products
   productlines.base:
     datasource: default
-    sql: |
-      SELECT * FROM classicmodels.productlines
+    sql: SELECT * FROM classicmodels.productlines
 
 operations:
   all-products:
-    query: |
-      SELECT * FROM classicmodels.products
+    label: All Products
+    description: List all products in the catalog
+    query: SELECT * FROM classicmodels.products
     configurations:
       default:
+        label: Default
         pipeline:
           - limit: 100
 
   all-productlines:
-    query: |
-      SELECT * FROM classicmodels.productlines
+    label: All Product Lines
+    description: List all product line categories
+    query: SELECT * FROM classicmodels.productlines
     configurations:
       default:
+        label: Default
         pipeline:
           - limit: 100
 
   get-product:
-    query: |
-      SELECT * FROM classicmodels.products where productCode = ?
+    label: Get Product
+    description: Look up a specific product by code
+    query: SELECT * FROM classicmodels.products where productCode = ?
     parameters:
       - name: productCode
         type: string
+        required: true
+        label: Product code
+        description: The unique product identifier
+        placeholder: S10_1678
     configurations:
       default:
+        label: Default
         pipeline:
           - limit: 100
 
   products:
+    label: Products
+    description: Product catalog operations with filtering
     queryRef: products.base
     configurations:
       default:
+        label: Default
+        description: Standard product list
         pipeline:
           - limit: 100
       compact:
+        label: Compact
+        description: Projected columns only
         pipeline:
           - project: [productCode, productName, productLine]
           - limit: 50
       expensive:
+        label: Expensive
+        description: Products over $50
         pipeline:
           - filter:
               buyPrice:

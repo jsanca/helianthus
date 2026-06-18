@@ -17,11 +17,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Sql(statements = {
-    "CREATE TABLE IF NOT EXISTS products (id INT AUTO_INCREMENT PRIMARY KEY, code VARCHAR(50), name VARCHAR(100))",
-    "DELETE FROM products",
-    "INSERT INTO products (code, name) VALUES ('P001', 'Widget')",
-    "INSERT INTO products (code, name) VALUES ('P002', 'Gadget')",
-    "INSERT INTO products (code, name) VALUES ('P003', 'Thingamajig')"
+    "DROP TABLE IF EXISTS products",
+    "CREATE TABLE products (PRODUCTCODE VARCHAR(50) PRIMARY KEY, PRODUCTNAME VARCHAR(100), PRODUCTLINE VARCHAR(50), BUYPRICE DECIMAL(10,2))",
+    "INSERT INTO products (PRODUCTCODE, PRODUCTNAME, PRODUCTLINE, BUYPRICE) VALUES ('P001', 'Widget', 'Classic Cars', 50.00)",
+    "INSERT INTO products (PRODUCTCODE, PRODUCTNAME, PRODUCTLINE, BUYPRICE) VALUES ('P002', 'Gadget', 'Motorcycles', 75.00)",
+    "INSERT INTO products (PRODUCTCODE, PRODUCTNAME, PRODUCTLINE, BUYPRICE) VALUES ('P003', 'Thingamajig', 'Planes', 100.00)"
 })
 class LegacyQueryApiTest {
 
