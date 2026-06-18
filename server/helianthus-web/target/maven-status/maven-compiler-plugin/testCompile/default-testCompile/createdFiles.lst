@@ -1,2 +1,4 @@
-helianthus/core/marshall/tableresult/JacksonTableResultMarshallFormatterTest.class
 helianthus/core/DataSourceIntegrationTest.class
+helianthus/core/LegacyQueryApiTest.class
+helianthus/core/JdbcRowStreamTest.class
+helianthus/core/marshall/tableresult/JacksonResultFrameMarshallFormatterTest.class

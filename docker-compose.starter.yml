@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: helianthus-starter-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-helianthus}
+      POSTGRES_USER: ${POSTGRES_USER:-helianthus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-helianthus}
+    ports:
+      - "5432:5432"
+    volumes:
+      - starter_pgdata:/var/lib/postgresql/data
+      - ./samples/starter/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./samples/starter/db/init.sql:/docker-entrypoint-initdb.d/02-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-helianthus}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    container_name: helianthus-starter-keycloak
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./docker/keycloak/helianthus-realm.json:/opt/keycloak/data/import/helianthus-realm.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000; echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; cat <&3 | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: helianthus-starter-server
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-helianthus}
+      POSTGRES_USER: ${POSTGRES_USER:-helianthus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-helianthus}
+      HELIANTHUS_CATALOG_PATH: file:/app/operations-starter.yml
+      HELIANTHUS_OIDC_ISSUER_URI: http://keycloak:8080/realms/helianthus
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./samples/starter/operations.yml:/app/operations-starter.yml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+
+volumes:
+  starter_pgdata:

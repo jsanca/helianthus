@@ -1,14 +1,13 @@
 package helianthus.core;
 
-import helianthus.core.util.OperationMappingHelper;
+import helianthus.core.catalog.OperationCatalog;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ContextConfiguration;
 
 import javax.sql.DataSource;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(
     classes = HelianthusApplication.class,
@@ -20,7 +19,7 @@ class DataSourceIntegrationTest {
     private DataSource dataSource;
 
     @Autowired
-    private OperationMappingHelper mappingHelper;
+    private OperationCatalog catalog;
 
     @Test
     void dataSourceShouldBeConfigured() {
@@ -28,13 +27,15 @@ class DataSourceIntegrationTest {
     }
 
     @Test
-    void queryConfigShouldBeLoaded() {
-        assertNotNull(mappingHelper, "OperationMappingHelper should be loaded from queryConfig.xml");
-        assertNotNull(mappingHelper.getQuery("/all-products"),
-                "Operation /all-products should be loaded");
-        assertNotNull(mappingHelper.getQuery("/all-productlines"),
-                "Operation /all-productlines should be loaded");
-        assertNotNull(mappingHelper.getQuery("/get-product"),
-                "Operation /get-product should be loaded");
+    void operationsCatalogShouldBeLoaded() {
+        assertNotNull(catalog, "OperationCatalog should be loaded from operations.yml");
+        assertNotNull(
+            catalog.resolveOperation("all-products", null),
+            "Operation all-products should be loaded"
+        );
+        assertNotNull(
+            catalog.resolveOperation("get-product", null),
+            "Operation get-product should be loaded"
+        );
     }
 }

@@ -1,4 +1,20 @@
+helianthus:
+  catalog:
+    path: ${HELIANTHUS_CATALOG_PATH:classpath:operations.yml}
+  security:
+    oauth2:
+      enabled: true
+  seed:
+    db: ${HELIANTHUS_SEED_DB:}
+    init: ${HELIANTHUS_SEED_INIT:}
+    operations: ${HELIANTHUS_SEED_OPERATIONS:}
+
 spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${HELIANTHUS_OIDC_ISSUER_URI:http://localhost:8081/realms/helianthus}
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:helianthus}
     username: ${POSTGRES_USER:helianthus}

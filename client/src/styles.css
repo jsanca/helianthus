@@ -1,0 +1,554 @@
+:root {
+  color: #17221b;
+  background: #f3f6f3;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.eyebrow {
+  display: block;
+  margin-bottom: 8px;
+  color: #26734c !important;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.brand-mark {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border-radius: 18px 18px 18px 6px;
+  color: #143e2a;
+  background: #f4c74b;
+  box-shadow: 0 12px 30px rgba(14, 57, 36, 0.2);
+  font-family: Georgia, serif;
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.brand-mark-small {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 13px 13px 13px 4px;
+  font-size: 22px;
+  box-shadow: none;
+}
+
+.login-shell {
+  display: grid;
+  min-height: 100vh;
+  grid-template-columns: minmax(0, 1.1fr) minmax(420px, 0.9fr);
+  align-items: center;
+  gap: clamp(48px, 10vw, 150px);
+  padding: clamp(32px, 7vw, 100px);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 16% 16%, rgba(244, 199, 75, 0.24), transparent 26%),
+    linear-gradient(135deg, #f5f8f4 0 55%, #e8efe9 55% 100%);
+}
+
+.login-shell::before,
+.login-shell::after {
+  position: fixed;
+  z-index: 0;
+  border: 1px solid rgba(31, 122, 77, 0.12);
+  border-radius: 50%;
+  content: '';
+}
+
+.login-shell::before {
+  top: -160px;
+  right: -180px;
+  width: 520px;
+  height: 520px;
+}
+
+.login-shell::after {
+  right: -40px;
+  bottom: -240px;
+  width: 480px;
+  height: 480px;
+}
+
+.login-intro,
+.login-card {
+  position: relative;
+  z-index: 1;
+}
+
+.login-intro {
+  max-width: 620px;
+}
+
+.login-intro .brand-mark {
+  margin-bottom: 32px;
+}
+
+.login-intro h1.ant-typography {
+  max-width: 590px;
+  margin: 0 0 20px;
+  color: #163d2b;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(44px, 6vw, 76px);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
+}
+
+.login-intro > .ant-typography {
+  max-width: 550px;
+  color: #53645a;
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+.login-feature {
+  display: flex;
+  max-width: 520px;
+  align-items: center;
+  gap: 12px;
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid #cad7cd;
+  color: #53645a;
+  line-height: 1.5;
+}
+
+.login-feature .anticon {
+  color: #26734c;
+  font-size: 22px;
+}
+
+.login-card {
+  width: min(100%, 460px);
+  justify-self: end;
+  border: 1px solid rgba(28, 79, 51, 0.08);
+  border-radius: 22px;
+  box-shadow: 0 32px 80px rgba(21, 61, 42, 0.14);
+}
+
+.login-card .ant-card-body {
+  padding: 42px;
+}
+
+.login-card h2.ant-typography {
+  margin: 0 0 4px;
+  color: #163d2b;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 34px;
+  font-weight: 500;
+}
+
+.login-card .ant-form {
+  margin-top: 28px;
+}
+
+.login-card .ant-form-item-label > label,
+.field-label {
+  color: #34463a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 24px 0;
+  color: #8b978f;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.login-divider::before,
+.login-divider::after {
+  height: 1px;
+  flex: 1;
+  background: #e2e8e3;
+  content: '';
+}
+
+.auth-note {
+  margin: 16px 0 0 !important;
+  text-align: center;
+  font-size: 12px;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-sider {
+  position: sticky !important;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+  background: #153c2a !important;
+  box-shadow: 8px 0 28px rgba(20, 53, 38, 0.08);
+}
+
+.sidebar-brand {
+  display: flex;
+  height: 82px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  color: white;
+}
+
+.sidebar-brand .ant-typography {
+  display: block;
+  color: white;
+  line-height: 1.3;
+}
+
+.sidebar-brand .ant-typography + .ant-typography {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+}
+
+.sidebar-label {
+  display: block;
+  padding: 26px 22px 10px;
+  color: rgba(255, 255, 255, 0.45) !important;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.catalog-tree.ant-tree {
+  padding: 0 10px;
+  color: rgba(255, 255, 255, 0.76);
+  background: transparent;
+}
+
+.catalog-tree .ant-tree-treenode {
+  width: 100%;
+  padding: 2px 0;
+}
+
+.catalog-tree .ant-tree-node-content-wrapper {
+  min-height: 34px;
+  line-height: 34px;
+}
+
+.catalog-tree .ant-tree-node-content-wrapper:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.catalog-tree .ant-tree-node-content-wrapper.ant-tree-node-selected {
+  color: #153c2a;
+  background: #f4c74b;
+  font-weight: 700;
+}
+
+.catalog-tree .ant-tree-switcher {
+  line-height: 34px;
+}
+
+.collapse-button {
+  position: absolute;
+  right: 12px;
+  bottom: 16px;
+  left: 12px;
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+
+.collapse-button:hover {
+  color: white !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.app-header {
+  position: sticky;
+  z-index: 10;
+  top: 0;
+  display: flex;
+  height: 82px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 34px;
+  border-bottom: 1px solid #e0e7e1;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+}
+
+.app-header .ant-typography {
+  display: block;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.app-header h4.ant-typography {
+  margin-top: 3px;
+  color: #163d2b;
+  font-family: Georgia, 'Times New Roman', serif;
+}
+
+.app-content {
+  padding: 34px;
+  background:
+    radial-gradient(circle at 92% 4%, rgba(244, 199, 75, 0.14), transparent 20%),
+    #f3f6f3;
+}
+
+.runner {
+  width: min(100%, 1480px);
+  margin: 0 auto;
+}
+
+.runner-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 26px;
+}
+
+.runner-heading h2.ant-typography {
+  margin: 0;
+  color: #153c2a;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 38px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.runner-heading .ant-typography {
+  margin-bottom: 0;
+}
+
+.datasource-chip {
+  min-width: 150px;
+  padding: 13px 16px;
+  border: 1px solid #d9e3db;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.datasource-chip .ant-typography {
+  display: block;
+}
+
+.runner .ant-card {
+  height: 100%;
+  border-color: #e0e7e1;
+  box-shadow: 0 10px 30px rgba(22, 61, 43, 0.04);
+}
+
+.runner .ant-card-head {
+  min-height: 58px;
+  border-bottom-color: #e9eeea;
+}
+
+.runner .ant-card-head-title {
+  color: #263b2e;
+  font-weight: 750;
+}
+
+.parameter-header,
+.parameter-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(160px, 1.2fr) 34px;
+  gap: 10px;
+}
+
+.parameter-header {
+  padding: 0 0 8px;
+  color: #6c7c71;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.parameter-list {
+  display: grid;
+  gap: 10px;
+}
+
+.request-card .ant-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.request-card .ant-select {
+  width: 100%;
+}
+
+.request-preview {
+  display: grid;
+  gap: 10px;
+  min-height: 122px;
+  margin: 8px 0;
+  padding: 16px;
+  border: 1px solid #e2e8e3;
+  border-radius: 10px;
+  background: #f7f9f7;
+}
+
+.request-preview .ant-typography code {
+  display: block;
+  max-height: 74px;
+  overflow: auto;
+  white-space: normal;
+  word-break: break-all;
+}
+
+.api-base-note {
+  text-align: center;
+  font-size: 12px;
+}
+
+.result-card {
+  min-height: 280px;
+  margin-top: 20px;
+}
+
+.result-empty {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+}
+
+.result-viewer {
+  display: grid;
+  gap: 16px;
+}
+
+.result-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.result-meta > .ant-typography {
+  max-width: 52%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.code-result {
+  min-height: 220px;
+  max-height: 540px;
+  margin: 0;
+  padding: 20px;
+  overflow: auto;
+  border: 1px solid #294b39;
+  border-radius: 10px;
+  color: #d8eadf;
+  background: #13291e;
+  font: 13px/1.65 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  tab-size: 2;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.html-preview {
+  width: 100%;
+  min-height: 420px;
+  border: 1px solid #dce4de;
+  border-radius: 10px;
+  background: white;
+}
+
+@media (max-width: 900px) {
+  .login-shell {
+    grid-template-columns: 1fr;
+    gap: 40px;
+    padding: 40px 24px;
+  }
+
+  .login-intro {
+    display: none;
+  }
+
+  .login-card {
+    justify-self: center;
+  }
+
+  .app-header {
+    padding: 0 20px;
+  }
+
+  .app-content {
+    padding: 24px 18px;
+  }
+
+  .runner-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .datasource-chip {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-sider {
+    position: fixed !important;
+    z-index: 20;
+  }
+
+  .app-shell > .ant-layout {
+    margin-left: 76px;
+  }
+
+  .app-header .ant-btn span:last-child {
+    display: none;
+  }
+
+  .parameter-header {
+    display: none;
+  }
+
+  .parameter-row {
+    grid-template-columns: 1fr 34px;
+  }
+
+  .parameter-row .ant-input:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .result-meta {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .result-meta > .ant-typography {
+    max-width: 100%;
+  }
+}

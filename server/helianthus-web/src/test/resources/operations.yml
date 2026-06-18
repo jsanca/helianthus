@@ -1,0 +1,42 @@
+operations:
+  all-products:
+    query: SELECT * FROM products ORDER BY id
+    configurations:
+      default:
+        pipeline:
+          - limit: 100
+
+  get-product:
+    query: SELECT * FROM products WHERE code = ?
+    parameters:
+      - name: productCode
+        type: string
+    configurations:
+      default:
+        pipeline:
+          - limit: 100
+
+  products:
+    queryRef: products.base
+    configurations:
+      default:
+        pipeline:
+          - limit: 100
+      compact:
+        pipeline:
+          - project: [ID, CODE, NAME]
+          - limit: 50
+
+  admin-only:
+    query: SELECT * FROM products ORDER BY id
+    security:
+      roles: [ADMIN]
+    configurations:
+      default:
+        pipeline:
+          - limit: 100
+
+queries:
+  products.base:
+    datasource: default
+    sql: SELECT * FROM products ORDER BY id

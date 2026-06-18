@@ -14,7 +14,6 @@
 
     <modules>
         <module>helianthus</module>
-        <module>helianthus-transformer</module>
         <module>helianthus-web</module>
     </modules>
 

@@ -1,46 +1,106 @@
 package helianthus.core.web
 
+import helianthus.core.NoMappingException
+import helianthus.core.catalog.OperationCatalog
+import helianthus.core.pipeline.OperationRequest
+import helianthus.core.pipeline.PipelineContext
+import helianthus.core.pipeline.PipelineFactory
+import helianthus.core.result.ResultFrame
+import helianthus.core.security.OperationPermissionEvaluator
 import helianthus.core.util.PathHandler
-import helianthus.core.web.workflow.WorkFlowContext
-import helianthus.core.web.workflow.WorkFlowFactory
-import helianthus.core.web.workflow.WorkFlowStep
 import jakarta.servlet.http.HttpServletRequest
-import jakarta.servlet.http.HttpServletResponse
+import org.slf4j.LoggerFactory
+import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
+import org.springframework.security.access.AccessDeniedException
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.server.ResponseStatusException
 
 @RestController
 class HelianthusController(
     private val pathHandler: PathHandler,
-    private val workFlowFactory: WorkFlowFactory
+    private val catalog: OperationCatalog,
+    private val pipelineFactory: PipelineFactory,
+    private val permissionEvaluator: OperationPermissionEvaluator
 ) {
+    // ...logging and handle method follow {
 
-    @GetMapping("/api/op/**")
-    fun handle(request: HttpServletRequest, response: HttpServletResponse) {
-        val pathMappingResultBean = pathHandler.parsePath(request.servletPath)
-
-        val workFlow = workFlowFactory.createWorkFlow(pathMappingResultBean)
-
-        request.setAttribute(
-            WorkFlowContext.PATH_MAPPING_RESULT_BEAN_KEY,
-            pathMappingResultBean
-        )
-        executeWorkFlow(request, response, workFlow)
+    companion object {
+        private val log = LoggerFactory.getLogger(HelianthusController::class.java)
     }
 
-    private fun executeWorkFlow(
-        request: HttpServletRequest,
-        response: HttpServletResponse,
-        workFlow: MutableSet<WorkFlowStep>
-    ) {
-        val workFlowContext = WorkFlowContext()
-        workFlowContext[WorkFlowContext.REQUEST_KEY] = request
-        workFlowContext[WorkFlowContext.RESPONSE_KEY] = response
+    @GetMapping(
+        "/api/op/**",
+        produces = [
+            MediaType.APPLICATION_JSON_VALUE,
+            MediaType.TEXT_HTML_VALUE,
+            "text/csv",
+            MediaType.APPLICATION_XML_VALUE
+        ]
+    )
+    fun handle(request: HttpServletRequest): ResponseEntity<ResultFrame> {
 
-        for (step in workFlow) {
-            if (!step.doStep(workFlowContext)) {
-                break
-            }
+        val pathResult = pathHandler.parsePath(request.servletPath)
+
+        val format = pathResult.format ?: "json"
+        val configurationId = pathResult.configurationId
+                ?: PathHandler.DEFAULT_CONFIGURATION
+        val operationId = pathResult.operationId ?:
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing operation id")
+
+        val auth = SecurityContextHolder.getContext().authentication
+            ?: throw AccessDeniedException("Not authenticated")
+
+        // Check operation exists before checking permissions (404 vs 403)
+        if (!catalog.operations.containsKey(operationId)) {
+            throw NoMappingException("Operation not found: $operationId")
         }
+
+        if (!permissionEvaluator.checkPermission(auth, operationId, configurationId)) {
+            throw AccessDeniedException(
+                "Access denied to operation '$operationId' configuration '$configurationId'"
+            )
+        }
+
+        val operationRequest = OperationRequest(
+            operationId = operationId,
+            configurationId = configurationId,
+            format = format,
+            params = extractParams(request)
+        )
+
+        log.debug("Executing operation: {} config: {} format: {}",
+                operationRequest.operationId, configurationId, format)
+
+        val pipeline = pipelineFactory.createPipeline(operationRequest)
+        val context = PipelineContext(operationRequest)
+        val result = pipeline.execute(context)
+
+        if (result.error != null) {
+            throw result.error!!
+        }
+
+        val resultFrame = result.resultFrame
+                ?: throw IllegalStateException("Pipeline produced no result")
+
+        val mediaType = when (format) {
+            "json" -> MediaType.APPLICATION_JSON
+            "html" -> MediaType.TEXT_HTML
+            "csv"  -> MediaType.parseMediaType("text/csv")
+            "xml"  -> MediaType.APPLICATION_XML
+            else   -> throw ResponseStatusException(HttpStatus.NOT_ACCEPTABLE, "Unsupported format: $format")
+        }
+
+        return ResponseEntity.ok()
+            .contentType(mediaType)
+            .body(resultFrame)
     }
+
+    private fun extractParams(request: HttpServletRequest): Map<String, String> =
+            request.parameterNames.asSequence().associateWith {
+                request.getParameter(it)
+            }
 }
