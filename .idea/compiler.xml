@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="helianthus-web" />
+        <module name="helianthus-core" />
+      </profile>
+    </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="helianthus-bean" target="25" />
+      <module name="helianthus-core (1)" target="25" />
+      <module name="helianthus-parent (1)" target="1.5" />
+      <module name="helianthus-transformer" target="25" />
+      <module name="helianthus-transformer (1)" target="25" />
+      <module name="helianthus-web (1)" target="25" />
+      <module name="helianthus-web-deploy" target="25" />
+    </bytecodeTargetLevel>
+  </component>
+</project>

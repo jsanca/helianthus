@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<!-- valid types: integer, bigdecimal, boolean, byte, date (the default date for us), double, float, long, string -->
 <queries>
     <query-config name="/all-products">
         <parameters/>

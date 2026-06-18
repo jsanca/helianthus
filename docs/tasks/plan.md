@@ -263,63 +263,498 @@ Then gradually migrate internals.
 
 ---
 
-# Phase 3 — Operation Pipeline
+# Phase 3 — Operation Pipeline Framework
 
 ## Goal
 
-Preserve the good idea behind workflow, but modernize it into a real operation pipeline.
+Replace the legacy workflow model with a typed, declarative, stream-oriented operation pipeline.
 
-## Old Model
-
-```text
-fetch SQL → formatter writes response
-```
-
-## New Model
+Helianthus must not execute arbitrary SQL from HTTP requests.  
+A request only selects:
 
 ```text
-resolve → bind → execute → transform → render
-```
+operationId + configurationId + format
+````
 
-## Proposed Steps
+The catalog decides:
 
 ```text
-OperationResolutionStep
-ParameterBindingStep
-QueryExecutionStep
-ResultTransformationStep
-ResultRenderingStep
+query source
+datasource
+parameters
+security
+pipeline
+limits
+rendering format
 ```
 
-Rendering may happen outside the core pipeline when Spring can handle it.
+---
+
+## Core Idea
+
+Separate reusable SQL/query definitions from public operations and their configurations.
+
+```text
+datasources
+  ↓
+queries
+  ↓
+operations
+  ↓
+configurations
+  ↓
+pipeline
+  ↓
+result format
+```
+
+Meaning:
+
+```text
+Query = reusable data source definition
+Operation = public executable contract
+Configuration = named shape/pipeline of the operation
+Format = representation: json/html/csv/xml
+```
+
+---
+
+## Request Shape
+
+Canonical route:
+
+```http
+GET /api/op/{operationId}/{configurationId}.{format}
+```
+
+Examples:
+
+```http
+GET /api/op/users/all.json
+GET /api/op/users/onlyNamesGreaterThan18.json
+GET /api/op/users/nameAndAges.json
+GET /api/op/users/cards.html
+GET /api/op/users/export.csv
+```
+
+Optional default shortcut:
+
+```http
+GET /api/op/{operationId}.{format}
+```
+
+Equivalent to:
+
+```http
+GET /api/op/{operationId}/default.{format}
+```
+
+---
+
+## Catalog Shape
+
+Helianthus supports both reusable queries and inline operation queries.
+
+### Reusable Query
+
+```yaml
+queries:
+  users.base:
+    datasource: default
+    sql: |
+      select id, name, last_name, age, email, status
+      from users
+    parameters:
+      minAge:
+        type: integer
+        required: false
+```
+
+### Operation Using Query Reference
+
+```yaml
+operations:
+  users:
+    queryRef: users.base
+    security:
+      roles: [USER_READER]
+
+    configurations:
+      all:
+        pipeline:
+          - limit: 100
+
+      onlyNamesGreaterThan18:
+        pipeline:
+          - filter:
+              age:
+                gt: 18
+          - project: [id, name, last_name]
+
+      nameAndAges:
+        pipeline:
+          - derive:
+              full_name: "name + ' ' + last_name"
+          - project: [full_name, age]
+          - limit: 50
+```
+
+### Operation With Inline SQL
+
+```yaml
+operations:
+  activeUsers:
+    datasource: default
+    query: |
+      select id, name, last_name, age
+      from users
+      where status = 'ACTIVE'
+
+    configurations:
+      default:
+        pipeline:
+          - project: [id, name, last_name]
+          - limit: 100
+```
+
+Rule:
+
+```text
+An operation must define either queryRef or query, but not both.
+```
+
+---
+
+## Security Model Placement
+
+Security belongs to the operation/configuration layer, not the raw query layer.
+
+Example:
+
+```yaml
+operations:
+  users.public:
+    queryRef: users.base
+    security:
+      roles: [USER_READER]
+    configurations:
+      default:
+        pipeline:
+          - project: [id, name]
+
+  users.admin:
+    queryRef: users.base
+    security:
+      realm: admin
+      roles: [ADMIN, SUPPORT]
+    configurations:
+      default:
+        pipeline:
+          - project: [id, name, last_name, age, email, status]
+```
+
+Configuration-level security can restrict further:
+
+```yaml
+configurations:
+  export:
+    security:
+      roles: [ADMIN]
+    pipeline:
+      - limit: 10000
+```
+
+Rule:
+
+```text
+Configuration security can restrict operation security, but must not silently relax it.
+```
+
+---
+
+## Pipeline Mental Model
+
+The pipeline should feel like Java Stream, Kotlin Sequence, or Kotlin Flow.
+
+Conceptual fluent form:
+
+```kotlin
+Operation("users")
+    .configuration("nameAndAges")
+    .query()
+    .filter(...)
+    .map(...)
+    .limit(50)
+    .toResultFrame()
+```
+
+Internal flow:
+
+```text
+OperationRequest
+  ↓
+ResolvedOperation
+  ↓
+BoundOperation
+  ↓
+RowStream
+  ↓
+TransformedRowStream
+  ↓
+ResultFrame / StreamingResultFrame
+```
+
+---
+
+## Initial Pipeline Slots
+
+### resolve
+
+Resolve operation and configuration.
+
+```text
+operationId + configurationId → OperationConfiguration
+```
+
+### bind
+
+Validate and convert request parameters.
+
+```text
+query params → typed parameters
+```
+
+### query
+
+Execute the declared query against the selected datasource.
+
+```text
+datasource + sql + typed params → row stream
+```
+
+### project
+
+Keep only selected columns.
+
+```yaml
+- project: [id, name, age]
+```
+
+### map
+
+Transform, clean, hydrate, or rename values.
+
+Possible uses:
+
+```text
+normalize text
+rename fields
+clean nulls
+convert values
+hydrate values from local lookup
+derive display fields
+```
+
+### derive
+
+Create a new field from existing fields.
+
+```yaml
+- derive:
+    full_name: "name + ' ' + last_name"
+```
+
+### filter
+
+Filter rows after query execution.
+
+```yaml
+- filter:
+    age:
+      gt: 18
+```
+
+Prefer SQL `WHERE` when possible, but keep pipeline filtering for post-query or dynamic cases.
+
+### limit
+
+Stop after N rows.
+
+```yaml
+- limit: 100
+```
+
+This is both a feature and a safety guard.
+
+### toResultFrame
+
+Collect the final result into a buffered `ResultFrame`.
+
+Later:
+
+```text
+toStreamingResultFrame
+```
+
+for large exports.
+
+---
+
+## Future Pipeline Slots
+
+Potential future slots:
+
+```text
+rename
+hide
+mask
+sort
+aggregate
+groupBy
+join
+hydrate
+cache
+tap/debug
+audit
+chartShape
+exportShape
+```
+
+---
+
+## External Invocation Slot
+
+The pipeline may later call external functions or cloud functions for custom behavior.
+
+Recommended slot name:
+
+```yaml
+- invoke:
+    function: enrich-user-profile
+    mode: batch
+```
+
+Function definitions live separately:
+
+```yaml
+functions:
+  enrich-user-profile:
+    type: http
+    url: ${ENRICH_USER_PROFILE_URL}
+    timeoutMs: 1500
+```
+
+Supported invocation modes:
+
+```text
+perRow      → one call per row; dangerous/costly
+batch       → chunks of rows
+wholeFrame  → entire result frame
+```
+
+Rules:
+
+```text
+timeout required
+allowlist required
+no secrets directly in YAML
+audit every invocation
+row/batch limits required
+retries controlled
+circuit breaker later
+```
+
+Implementation order:
+
+```text
+1. local declarative pipeline
+2. external HTTP invoke
+3. cloud functions
+4. embedded JS/GraalJS only if clearly justified
+```
+
+---
+
+## Rendering Boundary
+
+Pipeline does not own HTTP rendering.
+
+```text
+OperationPipeline → OperationResult → Renderer/Spring MVC
+```
+
+Renderers:
+
+```text
+json → Jackson / Spring MVC
+html → template engine + Helianthus helpers
+csv  → CSV renderer, preferably streaming
+xml  → Jackson XML later
+```
+
+No pipeline step should write directly to `HttpServletResponse`.
+
+---
+
+## Large Result Safety
+
+Default protections:
+
+```text
+default max rows
+per-configuration max rows
+query timeout
+fetch size
+streaming disabled by default
+```
+
+A normal operation must not accidentally load millions of rows into memory.
+
+---
 
 ## Rules
 
-* Pipeline must not depend on Servlet API.
-* Pipeline returns an object.
-* Controller handles HTTP.
-* Renderer handles format.
-* Query execution returns `ResultFrame`.
+```text
+No SQL from HTTP requests.
+Requests only select declared operations/configurations.
+GET is for declared operations with simple query parameters.
+Dynamic pipelines are not part of this phase.
+Dynamic pipelines, if added later, must use a secured POST endpoint.
+Pipeline must not depend on Servlet API.
+Pipeline must return data objects, not write responses.
+```
 
-## Possible Future Pipeline Features
+---
 
-* column rename
-* hidden columns
-* derived fields
-* aggregation
-* grouping
-* sorting
-* limiting
-* shape adaptation
-* chart adaptation
-* export adaptation
+## Phase 3 Done Criteria
 
-## Done Criteria
+* Legacy `WorkFlowStep` model is replaced or fully isolated behind an adapter.
+* No pipeline component depends on `HttpServletRequest`.
+* No pipeline component depends on `HttpServletResponse`.
+* Request model includes:
 
-* Workflow no longer needs `HttpServletRequest`.
-* Workflow no longer needs `HttpServletResponse`.
-* Pipeline has at least two meaningful steps.
-* Formatter no longer writes directly to servlet response.
+    * operationId
+    * configurationId
+    * format
+    * params
+* Catalog can resolve:
+
+    * inline query operation
+    * queryRef operation
+    * default configuration
+    * named configuration
+* Initial slots implemented:
+
+    * resolve
+    * bind
+    * query
+    * project
+    * filter
+    * limit
+    * toResultFrame
+* JSON output works from `ResultFrame`.
+* Legacy behavior maps to a `default` configuration.
+* No arbitrary SQL is accepted from request input.
 
 ---
 
@@ -327,58 +762,187 @@ Rendering may happen outside the core pipeline when Spring can handle it.
 
 ## Goal
 
-Introduce the future declarative catalog.
+Introduce the canonical Helianthus declarative catalog.
 
-## Keep Legacy XML Temporarily
+The catalog defines reusable queries, public operations, named configurations, pipeline steps, and future security metadata.
 
-`queryConfig.xml` remains as legacy compatibility.
+HTTP requests must never provide SQL.  
+Requests only select:
 
-## New Canonical Format
+```text
+operationId + configurationId + format
+````
+
+## Canonical File
+
+```text
+operations.yml
+```
+
+Later, this may become:
 
 ```text
 helianthus.yml
 ```
 
-Validated by:
+but for now `operations.yml` is the runtime catalog.
 
-```text
-helianthus.schema.json
-```
-
-## Example
+## Catalog Shape
 
 ```yaml
 app:
   name: Store Admin
 
-operations:
-  products.findAll:
-    path: /products
-    method: GET
+datasources:
+  default:
+    type: postgres
+
+queries:
+  products.base:
     datasource: default
     sql: |
-      select productCode, productName, productLine, buyPrice
+      select productCode, productName, productLine, buyPrice, quantityInStock
       from products
-    output:
-      defaultFormat: json
+    parameters:
+      productLine:
+        type: string
+        required: false
+
+operations:
+  products:
+    queryRef: products.base
+    security:
+      roles: [PRODUCT_READER]
+
+    configurations:
+      default:
+        pipeline:
+          - limit: 100
+
+      compact:
+        pipeline:
+          - project: [productCode, productName, productLine]
+          - limit: 50
+
+      expensive:
+        pipeline:
+          - filter:
+              buyPrice:
+                gt: 50
+          - project: [productCode, productName, buyPrice]
+          - limit: 100
 ```
 
-## Why JSON Schema
+## Inline Query Support
 
-* autocomplete
-* validation
-* docs
-* LLM contract
-* UI form generation
-* safer configuration
+For small catalogs, an operation may define SQL inline:
+
+```yaml
+operations:
+  productLines:
+    datasource: default
+    query: |
+      select productLine, textDescription
+      from productlines
+
+    configurations:
+      default:
+        pipeline:
+          - limit: 100
+```
+
+Rule:
+
+```text
+An operation must define either queryRef or query, but not both.
+```
+
+## URL Mapping
+
+Named configuration:
+
+```http
+GET /api/op/products/compact.json
+```
+
+Default configuration shortcut:
+
+```http
+GET /api/op/products.json
+```
+
+Equivalent to:
+
+```http
+GET /api/op/products/default.json
+```
+
+## Pipeline Steps for Phase 4
+
+Support at least:
+
+```text
+project
+filter
+limit
+```
+
+Optional if already implemented:
+
+```text
+derive
+map
+```
+
+## JSON Schema
+
+Add:
+
+```text
+schemas/operations.schema.json
+```
+
+Used for:
+
+```text
+autocomplete
+validation
+docs
+LLM generation contract
+future admin UI forms
+safer configuration
+```
+
+## Legacy Compatibility
+
+Legacy list-style YAML may remain temporarily:
+
+```yaml
+operations:
+  - name: /all-products
+    query: select * from products
+```
+
+but it should be marked as compatibility mode.
+
+`queryConfig.xml` stays only in `docs/legacy`.
 
 ## Done Criteria
 
-* YAML catalog loads.
+* Rich YAML catalog loads.
+* Catalog supports `queries`.
+* Catalog supports `operations`.
+* Operations support `queryRef` or inline `query`.
+* Operations support named `configurations`.
+* Pipeline config loads from YAML.
+* `/api/op/{operation}.{format}` resolves default configuration.
+* `/api/op/{operation}/{configuration}.{format}` resolves named configuration.
 * JSON Schema validates catalog.
-* Invalid catalog fails fast.
-* One operation can run from YAML.
-* XML catalog is marked legacy.
+* Invalid catalog fails fast with clear errors.
+* At least one operation runs from rich YAML.
+* Legacy XML is not part of runtime.
+
+
 
 ---
 
