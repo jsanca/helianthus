@@ -1,6 +1,7 @@
 package helianthus.core.web.converter
 
 import tools.jackson.dataformat.xml.XmlMapper
+import helianthus.core.result.ColumnNameResolver
 import helianthus.core.result.ResultFrame
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpInputMessage
@@ -34,7 +35,7 @@ class ResultFrameXmlMessageConverter : AbstractHttpMessageConverter<ResultFrame>
                 val sanitizedRow = mutableMapOf<String, Any?>()
                 columns.forEach { col ->
                     val sanitizedTagName = sanitizeXmlTagName(col.name)
-                    sanitizedRow[sanitizedTagName] = row[col.name]
+                    sanitizedRow[sanitizedTagName] = ColumnNameResolver.getRowValue(row, col.name)
                 }
                 mapOf("row" to sanitizedRow)
             }

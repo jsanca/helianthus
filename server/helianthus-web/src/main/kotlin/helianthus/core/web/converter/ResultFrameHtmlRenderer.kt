@@ -1,5 +1,6 @@
 package helianthus.core.web.converter
 
+import helianthus.core.result.ColumnNameResolver
 import helianthus.core.result.ResultFrame
 import org.springframework.web.util.HtmlUtils
 
@@ -47,7 +48,7 @@ class ResultFrameHtmlRenderer {
             resultFrame.rows.forEach { row ->
                 append("      <tr>\n")
                 columns.forEach { col ->
-                    val value = row[col.name]
+                    val value = ColumnNameResolver.getRowValue(row, col.name)
                     append("        <td>${HtmlUtils.htmlEscape(value?.toString() ?: "")}</td>\n")
                 }
                 append("      </tr>\n")

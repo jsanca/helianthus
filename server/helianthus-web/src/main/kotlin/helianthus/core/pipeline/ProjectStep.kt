@@ -1,6 +1,7 @@
 package helianthus.core.pipeline
 
 import helianthus.core.result.CloseableRowStream
+import helianthus.core.result.ColumnNameResolver
 import org.slf4j.LoggerFactory
 
 /**
@@ -9,6 +10,9 @@ import org.slf4j.LoggerFactory
  * Reads the `project` configuration from the resolved operation and applies
  * a column selection transform to the stream. If no project configuration
  * is present, the stream passes through unchanged.
+ *
+ * Column names are resolved case-insensitively, and the projection order
+ * follows the order specified in the configuration.
  */
 class ProjectStep : PipelineComponent {
 
@@ -22,15 +26,14 @@ class ProjectStep : PipelineComponent {
         val stream = context.rowStream
                 ?: throw IllegalStateException("No row stream to project")
 
-        val columnSet = columns.toSet()
-        val newColumns = stream.schema.columns.filter { it.name in columnSet }
+        val newColumns = ColumnNameResolver.resolveColumns(columns, stream.schema)
         val newSchema = helianthus.core.result.ResultSchema(newColumns)
 
         context.rowStream = stream.withSchema(newSchema).transformRows { rows ->
             rows.map { row ->
                 val projected = LinkedHashMap<String, Any?>()
                 for (col in newColumns) {
-                    projected[col.name] = row[col.name]
+                    projected[col.name] = ColumnNameResolver.getRowValueOrThrow(row, col.name)
                 }
                 projected as Map<String, Any?>
             }

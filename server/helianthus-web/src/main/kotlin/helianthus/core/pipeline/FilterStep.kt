@@ -1,5 +1,6 @@
 package helianthus.core.pipeline
 
+import helianthus.core.result.ColumnNameResolver
 import org.slf4j.LoggerFactory
 
 /**
@@ -9,6 +10,8 @@ import org.slf4j.LoggerFactory
  * a filtering transform to the row stream. Supports both equality conditions
  * and operator-based conditions (e.g., gt, lt, like). If no filter is
  * configured, the stream passes through unchanged.
+ *
+ * Column names are resolved case-insensitively.
  *
  * @param operatorRegistry registry of filter operators available for conditions
  */
@@ -29,7 +32,7 @@ class FilterStep(
         val transformed = stream.transformRows { rows ->
             rows.filter { row ->
                 (filterConfig as Map<String, Any>).all { (column, condition) ->
-                    val cellValue = row[column]
+                    val cellValue = ColumnNameResolver.getRowValueOrThrow(row, column)
                     when (condition) {
                         is Map<*, *> -> {
                             @Suppress("UNCHECKED_CAST")

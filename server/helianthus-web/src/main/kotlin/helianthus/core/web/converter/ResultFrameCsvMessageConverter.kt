@@ -1,5 +1,6 @@
 package helianthus.core.web.converter
 
+import helianthus.core.result.ColumnNameResolver
 import helianthus.core.result.ResultFrame
 import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.QuoteMode
@@ -36,7 +37,7 @@ class ResultFrameCsvMessageConverter : AbstractHttpMessageConverter<ResultFrame>
         outputMessage.body.writer().use { writer ->
             format.print(writer).use { printer ->
                 resultFrame.rows.forEach { row ->
-                    val values = columns.map { col -> row[col.name] }
+                    val values = columns.map { col -> ColumnNameResolver.getRowValue(row, col.name) }
                     printer.printRecord(values)
                 }
             }
