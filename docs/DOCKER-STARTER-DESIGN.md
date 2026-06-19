@@ -9,89 +9,122 @@ The project uses Docker Compose to provide a runnable development and demonstrat
 | Aspect | `docker-compose.yml` | `docker-compose.starter.yml` |
 |--------|---------------------|------------------------------|
 | Purpose | Production-like runtime | Demo/playground environment |
-| Contents | PostgreSQL only | PostgreSQL + seeded data + sample operations |
+| Contents | PostgreSQL only | 2x PostgreSQL + Keycloak + server + client |
 | Use Case | Local development, CI | Demos, training, exploration |
+
+## Clean Stack (`docker-compose.yml`)
+
+Single PostgreSQL container for basic development and testing.
+
+```yaml
+services:
+  postgres:
+    image: postgres:17-alpine
+    # ... single database instance
+```
+
+## Starter Stack (`docker-compose.starter.yml`)
+
+Full-featured demonstration environment with multiple services:
+
+### Services
+
+| Service | Port | Purpose |
+|---------|------|---------|
+| postgres | 5432 | Primary database (products schema) |
+| postgres-secondary | 5433 | Secondary database (customers schema) |
+| keycloak | 8081 | Identity provider (OIDC) |
+| server | 8080 | Helianthus API backend |
+| client | 5173 | React admin UI |
+
+### Keycloak Integration
+
+Keycloak is pre-configured with:
+- Realm: `helianthus`
+- Roles: `GUEST`, `ADMIN`
+- Test users: `guest/guest`, `admin/admin`
+- Client ID: `helianthus-client`
+
+The server is configured with OIDC issuer URI and JWK set URI for token validation.
 
 ## Starter Seed Concept
 
-The `docker-compose.starter.yml` extends the base composition with seed data and pre-registered operations. This provides a working end-to-end experience out of the box: a running database with schema and sample data, plus operation configurations that map to those tables.
-
-Seed artifacts live under `docker/starter/` with the following structure:
+The starter compose seeds both databases with sample data and registers operations that map to those tables. Seed artifacts live under `samples/starter/`:
 
 ```
-docker/starter/
-├── schema/
-│   └── init.sql
-├── data/
-│   └── seed.sql
-└── operations/
-    └── catalog.json
+samples/starter/
+├── operations.yml              # Operations catalog
+└── db/
+    ├── schema.sql              # Primary database schema (products)
+    ├── init.sql                # Primary database seed data
+    ├── secondary-schema.sql    # Secondary database schema (customers)
+    └── secondary-init.sql      # Secondary database seed data
 ```
 
-### Schema Seed (`schema/init.sql`)
+### Schema Seed
 
-Creates the initial database schema. The classicmodels sample database from `docs/legacy/mysqlsampledatabase.sql` serves as a reference; this file is ported to PostgreSQL dialect.
+The primary database (`schema.sql`) creates the products schema with tables for:
+- products
+- productlines
 
-### Data Seed (`data/seed.sql`)
+The secondary database (`secondary-schema.sql`) creates the customers schema with tables for:
+- customers
+- orders
+- orderdetails
+- products (referenced)
 
-Loads reference data into the schema. For the classicmodels schema, this includes customers, products, orders, and related entities. This enables immediate query capability without manual data entry.
+### Data Seed
 
-### Operations Catalog Seed (`operations/catalog.json`)
+Both databases are preloaded with sample data enabling immediate query capability without manual data entry.
 
-Registers pre-configured operations that map SQL queries to HTTP endpoints. Example operations:
+### Operations Catalog Seed (`operations.yml`)
 
-- `GET /operations/customers` — list all customers
-- `GET /operations/orders?customerId={id}` — orders for a customer
-- `POST /operations/products/search` — product search
+Registers pre-configured operations across both datasources. Example operations:
 
-Each operation entry contains:
-- `operationId` — unique identifier
-- `statement` — SQL query or statement
-- `datasource` — target database
-- `outputFormat` — json, xml, html, or csv
+**Primary datasource (products):**
+- `GET /api/op/products/default.json` — paginated product list
+- `GET /api/op/products/compact.json` — projected columns
+- `GET /api/op/products/expensive.json` — filtered products
+- `GET /api/op/product/default.json?productCode=X` — single product
 
-## Proposed Folder Layout
+**Secondary datasource (customers):**
+- `GET /api/op/customers/default.json` — customer list
+- `GET /api/op/customer/default.json?customerNumber=X` — single customer
+- `GET /api/op/customer-orders/default.json?customerNumber=X` — customer orders
+
+### Init Script Mounting
+
+The starter compose mounts seed files into PostgreSQL containers for automatic initialization:
+
+```yaml
+volumes:
+  - ./samples/starter/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+  - ./samples/starter/db/init.sql:/docker-entrypoint-initdb.d/02-init.sql:ro
+```
+
+## Folder Layout
 
 ```
 helianthus/
 ├── docker/
-│   ├── docker-compose.yml              # Base compose (PostgreSQL only)
-│   ├── docker-compose.starter.yml      # Starter compose (full seeding)
-│   └── starter/
-│       ├── schema/
-│       │   └── init.sql
-│       ├── data/
-│       │   └── seed.sql
-│       └── operations/
-│           └── catalog.json
-├── docs/
-│   └── DOCKER-STARTER-DESIGN.md
-└── server/
-    └── ...
-```
-
-### Init Script Mounting
-
-The starter compose mounts seed files into the PostgreSQL container for automatic initialization:
-
-```yaml
-volumes:
-  - ./docker/starter/schema/init.sql:/docker-entrypoint-initdb.d/01-schema.sql
-  - ./docker/starter/data/seed.sql:/docker-entrypoint-initdb.d/02-data.sql
+│   └── keycloak/
+│       └── helianthus-realm.json    # Keycloak realm import
+├── samples/starter/
+│   ├── operations.yml                # Operations catalog
+│   └── db/
+│       ├── schema.sql
+│       ├── init.sql
+│       ├── secondary-schema.sql
+│       └── secondary-init.sql
+├── docker-compose.yml                 # Clean stack
+├── docker-compose.starter.yml        # Full starter stack
+└── docs/
+    └── DOCKER-STARTER-DESIGN.md
 ```
 
 ## Future Additions (Not Implemented)
 
-The following services are potential future additions for full-stack demos. They are out of scope for the initial starter but may be introduced later.
-
-### Keycloak
-
-Identity provider for OAuth2/OIDC authentication. Would enable:
-- Secure operation endpoints
-- Token-based access control
-- User federation
-
-**Status:** Deferred.
+The following services are potential future additions for extended demos.
 
 ### MinIO
 
@@ -119,8 +152,8 @@ The starter configuration exists solely to provide a frictionless demonstration 
 |---------|---------|------------|
 | Credentials | Defaults/well-known | Secrets management |
 | Data | Synthetic/sample | Real business data |
-| Security | Open, no auth | Keycloak, TLS, network policies |
-| Scalability | Single node | Container orchestration |
+| Security | Well-known test credentials | Keycloak with proper realms, TLS, network policies |
+| Scalability | Single node | Container orchestration, read replicas |
 | Backup | None | Automated, tested backups |
 | Monitoring | Basic health | Full observability stack |
 
