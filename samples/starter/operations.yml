@@ -1,0 +1,272 @@
+app:
+  name: Helianthus Starter
+
+datasources:
+  default:
+    type: postgres
+  secondary:
+    type: postgres
+
+queries:
+  products.base:
+    datasource: default
+    sql: SELECT * FROM products ORDER BY productCode
+  productlines.base:
+    datasource: default
+    sql: SELECT * FROM productlines ORDER BY productLine
+  expensive-products.base:
+    datasource: default
+    sql: SELECT * FROM products WHERE buyPrice > 50 ORDER BY productCode
+
+operations:
+  # Default result demonstration
+  products:
+    label: Products
+    description: Product catalog operations
+    queryRef: products.base
+    configurations:
+      default:
+        label: Default
+        description: Standard product list
+        pipeline:
+          - limit: 100
+      # Projected result demonstration
+      compact:
+        label: Compact
+        description: Projected columns only
+        pipeline:
+          - project: [productCode, productName, productLine]
+          - limit: 50
+      # Filtered result demonstration
+      expensive:
+        label: Expensive
+        description: Products over $50
+        pipeline:
+          - filter:
+              buyPrice:
+                gt: 50
+          - project: [productCode, productName, buyPrice]
+          - limit: 100
+
+  # Default result for product lines
+  productlines:
+    label: Product Lines
+    description: Browse product line categories
+    queryRef: productlines.base
+    configurations:
+      default:
+        label: Default
+        pipeline:
+          - limit: 100
+
+  # Required parameter demonstration
+  product:
+    label: Single Product
+    description: Look up a specific product by code
+    query: SELECT * FROM products WHERE productCode = ?
+    parameters:
+      - name: productCode
+        type: string
+        required: true
+        label: Product code
+        description: The unique product identifier
+        placeholder: S10_1678
+        input:
+          kind: text
+    configurations:
+      default:
+        label: Default
+        pipeline:
+          - limit: 1
+
+  # Optional parameter + Select input demonstration
+  products-by-line:
+    label: Products by Line
+    description: Filter products by product line
+    query: SELECT * FROM products WHERE productLine = ? ORDER BY productCode
+    parameters:
+      - name: productLine
+        type: string
+        required: true
+        label: Product Line
+        description: Select a product line category
+        input:
+          kind: select
+          options:
+            - Classic Cars
+            - Motorcycles
+            - Planes
+    configurations:
+      default:
+        label: Default
+        pipeline:
+          - limit: 100
+
+  # Number input parameter demonstration
+  products-by-price:
+    label: Products by Price Range
+    description: Find products within a price range
+    query: SELECT * FROM products WHERE buyPrice >= ? AND buyPrice <= ? ORDER BY buyPrice
+    parameters:
+      - name: minPrice
+        type: number
+        required: true
+        label: Minimum Price
+        description: Minimum price in dollars
+        placeholder: 0
+        input:
+          kind: number
+          min: 0
+      - name: maxPrice
+        type: number
+        required: true
+        label: Maximum Price
+        description: Maximum price in dollars
+        placeholder: 100
+        input:
+          kind: number
+          min: 0
+    configurations:
+      default:
+        label: Default
+        pipeline:
+          - limit: 100
+
+  # Optional parameter demonstration
+  products-search:
+    label: Product Search
+    description: Search products with optional filters
+    query: SELECT * FROM products ORDER BY productCode
+    parameters:
+      - name: productLine
+        type: string
+        required: false
+        label: Product Line (Optional)
+        description: Filter by product line
+        input:
+          kind: select
+          options:
+            - Classic Cars
+            - Motorcycles
+            - Planes
+      - name: minPrice
+        type: number
+        required: false
+        label: Minimum Price (Optional)
+        description: Filter by minimum price
+        input:
+          kind: number
+          min: 0
+    configurations:
+      default:
+        label: Default
+        pipeline:
+          - limit: 100
+
+  # Boolean input demonstration (in stock check)
+  products-in-stock:
+    label: In-Stock Products
+    description: Find products that are in stock
+    query: SELECT * FROM products WHERE (? = false OR quantityInStock > 0) ORDER BY quantityInStock DESC
+    parameters:
+      - name: inStockOnly
+        type: boolean
+        required: false
+        label: In Stock Only
+        description: Show only products in stock
+        input:
+          kind: boolean
+    configurations:
+      default:
+        label: Default
+        pipeline:
+          - limit: 100
+
+  # Admin-only operation demonstration
+  inventory-report:
+    label: Inventory Report
+    description: Detailed inventory report (Admin only)
+    query: SELECT productCode, productName, quantityInStock, buyPrice, (quantityInStock * buyPrice) as totalValue FROM products ORDER BY totalValue DESC
+    security:
+      roles:
+        - ADMIN
+    configurations:
+      default:
+        label: Default
+        pipeline:
+          - limit: 100
+
+  # Guest-visible operation (no security restrictions)
+  public-catalog:
+    label: Public Catalog
+    description: Public product catalog accessible to all users
+    query: SELECT productCode, productName, productLine, buyPrice FROM products ORDER BY productName
+    security:
+      roles:
+        - GUEST
+        - ADMIN
+    configurations:
+      default:
+        label: Default
+        pipeline:
+          - limit: 50
+
+  # Secondary datasource operations (customers database)
+  customers:
+    label: Customers
+    description: Customer list from secondary database
+    datasource: secondary
+    query: SELECT customerNumber, customerName, contactFirstName, contactLastName, city, country FROM customers ORDER BY customerName
+    configurations:
+      default:
+        label: Default
+        pipeline:
+          - limit: 100
+
+  customer:
+    label: Customer Details
+    description: Look up a specific customer by number
+    datasource: secondary
+    query: SELECT * FROM customers WHERE customerNumber = ?
+    parameters:
+      - name: customerNumber
+        type: number
+        required: true
+        label: Customer Number
+        description: The unique customer identifier
+        input:
+          kind: number
+    configurations:
+      default:
+        label: Default
+        pipeline:
+          - limit: 1
+
+  customer-orders:
+    label: Customer Orders
+    description: View orders for a specific customer
+    datasource: secondary
+    query: SELECT o.orderNumber, o.orderDate, o.requiredDate, o.shippedDate, o.status, c.customerName FROM orders o JOIN customers c ON o.customerNumber = c.customerNumber WHERE o.customerNumber = ? ORDER BY o.orderDate DESC
+    parameters:
+      - name: customerNumber
+        type: number
+        required: true
+        label: Customer Number
+        input:
+          kind: number
+    configurations:
+      default:
+        label: Default
+        pipeline:
+          - limit: 50
+
+  high-value-customers:
+    label: High Value Customers
+    description: Customers with credit limit over $50,000
+    datasource: secondary
+    query: SELECT customerNumber, customerName, contactFirstName, contactLastName, city, country, creditLimit FROM customers WHERE creditLimit > 50000 ORDER BY creditLimit DESC
+    configurations:
+      default:
+        label: Default
+        pipeline:
+          - limit: 100

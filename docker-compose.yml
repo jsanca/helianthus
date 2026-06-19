@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: helianthus-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-helianthus}
+      POSTGRES_USER: ${POSTGRES_USER:-helianthus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-helianthus}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-helianthus}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<queries>
+    <query-config name="/all-products">
+        <parameters/>
+        <query>
+            SELECT * FROM classicmodels.products;
+        </query>
+    </query-config>
+    <query-config name="/all-productlines">
+        <parameters/>
+        <query>
+            SELECT * FROM classicmodels.productlines;
+        </query>
+    </query-config>
+    <query-config name="/get-product">
+        <parameters>
+            <parameter name="productCode" type="string"/>
+        </parameters>
+        <query>
+            SELECT * FROM classicmodels.products where productCode = ?;
+        </query>
+    </query-config>
+</queries>
