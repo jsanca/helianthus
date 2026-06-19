@@ -4,6 +4,12 @@ Helianthus is a Kotlin-first declarative backend platform inspired by Apache Coc
 
 The current codebase is a modernization of a legacy Java middleware that already demonstrates this core value proposition: SQL operations exposed as HTTP endpoints returning JSON, XML, HTML, or CSV. The platform is being rebuilt with a clean Kotlin foundation while preserving the core idea.
 
+## Documentation
+
+- **[User Guide](USER-GUIDE.md)** — Comprehensive guide for backend developers: operations catalog, pipeline transformations, parameters, security, and Admin UI usage
+- **[Docker Starter Design](docs/DOCKER-STARTER-DESIGN.md)** — Starter environment architecture and seed data
+- **[Debug Mode](docs/DEBUG_MODE.md)** — Remote debugging, logging, and troubleshooting
+
 ## Why Helianthus Exists
 
 Most backend development involves writing repetitive controllers, services, and repositories to expose data over HTTP. Helianthus inverts this model: you declare what you want — an operation, its SQL, its output format — and the platform handles the HTTP layer automatically.
@@ -323,6 +329,8 @@ Request: `GET /api/op/products/default.json`
 | CSV | text/csv | ResultFrameCsvMessageConverter |
 
 ## Quick Start
+
+See the [User Guide](USER-GUIDE.md) for a complete walkthrough with screenshots and examples.
 
 ### Clean stack (PostgreSQL only)
 
