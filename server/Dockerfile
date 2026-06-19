@@ -21,9 +21,9 @@ WORKDIR /app
 
 COPY --from=build /build/helianthus-web/target/helianthus-web-1.0.jar /app/app.jar
 
-EXPOSE 8080
+EXPOSE 8080 5005
 
 HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
     CMD curl -f http://localhost:8080/health || exit 1
 
-CMD ["java", "-jar", "/app/app.jar"]
+CMD ["sh", "-c", "java ${JAVA_OPTS} -jar /app/app.jar"]

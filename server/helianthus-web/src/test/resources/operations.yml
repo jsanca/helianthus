@@ -1,4 +1,11 @@
+datasources:
+  default:
+    type: h2
+  secondary:
+    type: h2
+
 operations:
+  # Default result
   all-products:
     query: SELECT * FROM products ORDER BY PRODUCTCODE
     configurations:
@@ -6,6 +13,7 @@ operations:
         pipeline:
           - limit: 100
 
+  # Required parameter
   get-product:
     query: SELECT * FROM products WHERE PRODUCTCODE = ?
     parameters:
@@ -17,6 +25,7 @@ operations:
         pipeline:
           - limit: 1
 
+  # Default + Projected + Filtered
   products:
     queryRef: products.base
     configurations:
@@ -35,6 +44,7 @@ operations:
           - project: [PRODUCTCODE, PRODUCTNAME, BUYPRICE]
           - limit: 100
 
+  # Default for productlines
   productlines:
     queryRef: productlines.base
     configurations:
@@ -42,6 +52,7 @@ operations:
         pipeline:
           - limit: 100
 
+  # Required parameter (single product lookup)
   product:
     query: SELECT * FROM products WHERE PRODUCTCODE = ?
     parameters:
@@ -53,14 +64,140 @@ operations:
         pipeline:
           - limit: 1
 
-  admin-only:
-    query: SELECT * FROM products ORDER BY PRODUCTCODE
-    security:
-      roles: [ADMIN]
+  # Select input parameter
+  products-by-line:
+    query: SELECT * FROM products WHERE PRODUCTLINE = ? ORDER BY PRODUCTCODE
+    parameters:
+      - name: productLine
+        type: string
+        required: true
+        label: Product Line
+        description: Select a product line category
+        input:
+          kind: select
+          options:
+            - Classic Cars
+            - Motorcycles
+            - Planes
     configurations:
       default:
         pipeline:
           - limit: 100
+
+  # Number input parameter
+  products-by-price:
+    query: SELECT * FROM products WHERE BUYPRICE >= ? AND BUYPRICE <= ? ORDER BY BUYPRICE
+    parameters:
+      - name: minPrice
+        type: number
+        required: true
+        label: Minimum Price
+        input:
+          kind: number
+          min: 0
+      - name: maxPrice
+        type: number
+        required: true
+        label: Maximum Price
+        input:
+          kind: number
+          min: 0
+    configurations:
+      default:
+        pipeline:
+          - limit: 100
+
+  # Optional parameters
+  products-search:
+    query: SELECT * FROM products ORDER BY PRODUCTCODE
+    parameters:
+      - name: productLine
+        type: string
+        required: false
+        label: Product Line (Optional)
+        input:
+          kind: select
+          options:
+            - Classic Cars
+            - Motorcycles
+            - Planes
+      - name: minPrice
+        type: number
+        required: false
+        label: Minimum Price (Optional)
+        input:
+          kind: number
+          min: 0
+    configurations:
+      default:
+        pipeline:
+          - limit: 100
+
+  # Boolean input
+  products-in-stock:
+    query: SELECT * FROM products WHERE (? = false OR QUANTITYINSTOCK > 0) ORDER BY QUANTITYINSTOCK DESC
+    parameters:
+      - name: inStockOnly
+        type: boolean
+        required: false
+        label: In Stock Only
+        input:
+          kind: boolean
+    configurations:
+      default:
+        pipeline:
+          - limit: 100
+
+  # Admin-only operation
+  inventory-report:
+    query: SELECT PRODUCTCODE, PRODUCTNAME, QUANTITYINSTOCK, BUYPRICE, (QUANTITYINSTOCK * BUYPRICE) as TOTALVALUE FROM products ORDER BY TOTALVALUE DESC
+    security:
+      roles:
+        - ADMIN
+    configurations:
+      default:
+        pipeline:
+          - limit: 100
+
+  # Guest-visible operation
+  public-catalog:
+    query: SELECT PRODUCTCODE, PRODUCTNAME, PRODUCTLINE, BUYPRICE FROM products ORDER BY PRODUCTNAME
+    security:
+      roles:
+        - GUEST
+        - ADMIN
+    configurations:
+      default:
+        pipeline:
+          - limit: 50
+
+  # Secondary datasource operations
+  customers:
+    label: Customers
+    description: Customer list from secondary database
+    datasource: secondary
+    query: SELECT CUSTOMERNUMBER, CUSTOMERNAME, CONTACTFIRSTNAME, CONTACTLASTNAME, CITY, COUNTRY FROM customers ORDER BY CUSTOMERNAME
+    configurations:
+      default:
+        pipeline:
+          - limit: 100
+
+  customer:
+    label: Customer Details
+    description: Look up a specific customer by number
+    datasource: secondary
+    query: SELECT * FROM customers WHERE CUSTOMERNUMBER = ?
+    parameters:
+      - name: customerNumber
+        type: number
+        required: true
+        label: Customer Number
+        input:
+          kind: number
+    configurations:
+      default:
+        pipeline:
+          - limit: 1
 
 queries:
   products.base:

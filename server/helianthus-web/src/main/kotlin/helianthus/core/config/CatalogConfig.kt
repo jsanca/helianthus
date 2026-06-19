@@ -14,6 +14,7 @@ import helianthus.core.catalog.QueryParameterDef
 import helianthus.core.catalog.SecurityDef
 import helianthus.core.pipeline.PipelineConfig
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -28,8 +29,9 @@ class CatalogConfig(
 ) {
 
     @Bean
-    fun genericDataAccess(dataSource: DataSource): GenericDataAccess {
-        return JdbcGenericDataAccess(dataSource)
+    fun genericDataAccess(@Qualifier("dataSources") dataSources: Map<String, DataSource>): GenericDataAccess {
+        log.info("Creating genericDataAccess with dataSources map keys: {}", dataSources.keys)
+        return JdbcGenericDataAccess(dataSources)
     }
 
     @Bean

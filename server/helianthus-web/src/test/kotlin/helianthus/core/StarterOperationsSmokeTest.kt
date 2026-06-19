@@ -2,9 +2,11 @@ package helianthus.core
 
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.boot.test.web.server.LocalServerPort
+import org.springframework.beans.factory.SmartInitializingSingleton
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
 import org.springframework.context.annotation.Primary
@@ -18,6 +20,7 @@ import org.springframework.web.client.RestTemplate
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.test.fail
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestPropertySource(properties = [
@@ -29,13 +32,23 @@ import kotlin.test.assertTrue
 @Sql(statements = [
     "DROP TABLE IF EXISTS products",
     "DROP TABLE IF EXISTS productlines",
-    "CREATE TABLE products (PRODUCTCODE VARCHAR(50) PRIMARY KEY, PRODUCTNAME VARCHAR(100), PRODUCTLINE VARCHAR(50), BUYPRICE DECIMAL(10,2))",
-    "INSERT INTO products (PRODUCTCODE, PRODUCTNAME, PRODUCTLINE, BUYPRICE) VALUES ('S10_1678', '1969 Harley Davidson', 'Motorcycles', 50.50)",
-    "INSERT INTO products (PRODUCTCODE, PRODUCTNAME, PRODUCTLINE, BUYPRICE) VALUES ('S10_1949', '1952 Alpine Renault 1300', 'Classic Cars', 85.00)",
-    "INSERT INTO products (PRODUCTCODE, PRODUCTNAME, PRODUCTLINE, BUYPRICE) VALUES ('S12_1099', '1968 Ford Mustang', 'Classic Cars', 95.00)",
+    "DROP TABLE IF EXISTS customers",
+    "DROP TABLE IF EXISTS orders",
+    "CREATE TABLE products (PRODUCTCODE VARCHAR(50) PRIMARY KEY, PRODUCTNAME VARCHAR(100), PRODUCTLINE VARCHAR(50), BUYPRICE DECIMAL(10,2), QUANTITYINSTOCK INTEGER DEFAULT 0)",
+    "INSERT INTO products (PRODUCTCODE, PRODUCTNAME, PRODUCTLINE, BUYPRICE, QUANTITYINSTOCK) VALUES ('S10_1678', '1969 Harley Davidson', 'Motorcycles', 50.50, 100)",
+    "INSERT INTO products (PRODUCTCODE, PRODUCTNAME, PRODUCTLINE, BUYPRICE, QUANTITYINSTOCK) VALUES ('S10_1949', '1952 Alpine Renault 1300', 'Classic Cars', 85.00, 50)",
+    "INSERT INTO products (PRODUCTCODE, PRODUCTNAME, PRODUCTLINE, BUYPRICE, QUANTITYINSTOCK) VALUES ('S12_1099', '1968 Ford Mustang', 'Classic Cars', 95.00, 0)",
     "CREATE TABLE productlines (PRODUCTLINE VARCHAR(50) PRIMARY KEY, TEXTDESCRIPTION VARCHAR(255))",
     "INSERT INTO productlines (PRODUCTLINE, TEXTDESCRIPTION) VALUES ('Classic Cars', 'Vintage cars')",
-    "INSERT INTO productlines (PRODUCTLINE, TEXTDESCRIPTION) VALUES ('Motorcycles', 'Two-wheel vehicles')"
+    "INSERT INTO productlines (PRODUCTLINE, TEXTDESCRIPTION) VALUES ('Motorcycles', 'Two-wheel vehicles')",
+    "INSERT INTO productlines (PRODUCTLINE, TEXTDESCRIPTION) VALUES ('Planes', 'Aircraft models')",
+    "CREATE TABLE customers (CUSTOMERNUMBER INTEGER PRIMARY KEY, CUSTOMERNAME VARCHAR(100), CONTACTFIRSTNAME VARCHAR(50), CONTACTLASTNAME VARCHAR(50), CITY VARCHAR(50), COUNTRY VARCHAR(50), CREDITLIMIT DECIMAL(10,2))",
+    "INSERT INTO customers (CUSTOMERNUMBER, CUSTOMERNAME, CONTACTFIRSTNAME, CONTACTLASTNAME, CITY, COUNTRY, CREDITLIMIT) VALUES (103, 'Atelier graphique', 'Carine', 'Schmitt', 'Nantes', 'France', 21000.00)",
+    "INSERT INTO customers (CUSTOMERNUMBER, CUSTOMERNAME, CONTACTFIRSTNAME, CONTACTLASTNAME, CITY, COUNTRY, CREDITLIMIT) VALUES (112, 'Signal Gift Stores', 'Jean', 'King', 'Las Vegas', 'USA', 71800.00)",
+    "INSERT INTO customers (CUSTOMERNUMBER, CUSTOMERNAME, CONTACTFIRSTNAME, CONTACTLASTNAME, CITY, COUNTRY, CREDITLIMIT) VALUES (114, 'Australian Collectors', 'Peter', 'Ferguson', 'Melbourne', 'Australia', 117300.00)",
+    "CREATE TABLE orders (ORDERNUMBER INTEGER PRIMARY KEY, ORDERDATE DATE, REQUIREDDATE DATE, SHIPPEDDATE DATE, STATUS VARCHAR(15), CUSTOMERNUMBER INTEGER)",
+    "INSERT INTO orders (ORDERNUMBER, ORDERDATE, REQUIREDDATE, SHIPPEDDATE, STATUS, CUSTOMERNUMBER) VALUES (10100, '2003-01-06', '2003-01-13', '2003-01-10', 'Shipped', 103)",
+    "INSERT INTO orders (ORDERNUMBER, ORDERDATE, REQUIREDDATE, SHIPPEDDATE, STATUS, CUSTOMERNUMBER) VALUES (10101, '2003-01-09', '2003-01-18', '2003-01-11', 'Shipped', 112)"
 ])
 class StarterOperationsSmokeTest {
 
@@ -55,6 +68,27 @@ class StarterOperationsSmokeTest {
                 .roles("ADMIN")
                 .build()
             return InMemoryUserDetailsManager(guest, admin)
+        }
+
+        @Bean
+        fun secondaryDatabaseInitializer(
+            @Qualifier("secondaryDataSource") ds: javax.sql.DataSource
+        ): SmartInitializingSingleton {
+            return SmartInitializingSingleton {
+                ds.connection.use { conn ->
+                    conn.createStatement().use { stmt ->
+                        stmt.execute("DROP TABLE IF EXISTS customers")
+                        stmt.execute("DROP TABLE IF EXISTS orders")
+                        stmt.execute("CREATE TABLE customers (CUSTOMERNUMBER INTEGER PRIMARY KEY, CUSTOMERNAME VARCHAR(100), CONTACTFIRSTNAME VARCHAR(50), CONTACTLASTNAME VARCHAR(50), CITY VARCHAR(50), COUNTRY VARCHAR(50), CREDITLIMIT DECIMAL(10,2))")
+                        stmt.execute("INSERT INTO customers (CUSTOMERNUMBER, CUSTOMERNAME, CONTACTFIRSTNAME, CONTACTLASTNAME, CITY, COUNTRY, CREDITLIMIT) VALUES (103, 'Atelier graphique', 'Carine', 'Schmitt', 'Nantes', 'France', 21000.00)")
+                        stmt.execute("INSERT INTO customers (CUSTOMERNUMBER, CUSTOMERNAME, CONTACTFIRSTNAME, CONTACTLASTNAME, CITY, COUNTRY, CREDITLIMIT) VALUES (112, 'Signal Gift Stores', 'Jean', 'King', 'Las Vegas', 'USA', 71800.00)")
+                        stmt.execute("INSERT INTO customers (CUSTOMERNUMBER, CUSTOMERNAME, CONTACTFIRSTNAME, CONTACTLASTNAME, CITY, COUNTRY, CREDITLIMIT) VALUES (114, 'Australian Collectors', 'Peter', 'Ferguson', 'Melbourne', 'Australia', 117300.00)")
+                        stmt.execute("CREATE TABLE orders (ORDERNUMBER INTEGER PRIMARY KEY, ORDERDATE DATE, REQUIREDDATE DATE, SHIPPEDDATE DATE, STATUS VARCHAR(15), CUSTOMERNUMBER INTEGER)")
+                        stmt.execute("INSERT INTO orders (ORDERNUMBER, ORDERDATE, REQUIREDDATE, SHIPPEDDATE, STATUS, CUSTOMERNUMBER) VALUES (10100, '2003-01-06', '2003-01-13', '2003-01-10', 'Shipped', 103)")
+                        stmt.execute("INSERT INTO orders (ORDERNUMBER, ORDERDATE, REQUIREDDATE, SHIPPEDDATE, STATUS, CUSTOMERNUMBER) VALUES (10101, '2003-01-09', '2003-01-18', '2003-01-11', 'Shipped', 112)")
+                    }
+                }
+            }
         }
     }
 
@@ -185,5 +219,116 @@ class StarterOperationsSmokeTest {
         assertEquals(HttpStatus.OK, response.statusCode)
         assertNotNull(response.body)
         assertTrue(response.body!!.contains("<table>"))
+    }
+
+    @Test
+    fun `products-by-line with select parameter should return filtered data`() {
+        val template = authTemplate("guest", "guest")
+        val response = template.getForEntity(
+            url("/api/op/products-by-line/default.json?productLine=Classic Cars"),
+            String::class.java
+        )
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertNotNull(response.body)
+        assertTrue(response.body!!.contains("Classic Cars"))
+    }
+
+    @Test
+    fun `products-by-price with number parameters should return filtered data`() {
+        val template = authTemplate("guest", "guest")
+        val response = template.getForEntity(
+            url("/api/op/products-by-price/default.json?minPrice=50&maxPrice=100"),
+            String::class.java
+        )
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertNotNull(response.body)
+        assertTrue(response.body!!.contains("rows"))
+    }
+
+    @Test
+    fun `products-search with optional parameters should return data`() {
+        val template = authTemplate("guest", "guest")
+        val response = template.getForEntity(
+            url("/api/op/products-search/default.json"),
+            String::class.java
+        )
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertNotNull(response.body)
+        assertTrue(response.body!!.contains("rows"))
+    }
+
+    @Test
+    fun `products-in-stock with boolean parameter should return data`() {
+        val template = authTemplate("guest", "guest")
+        val response = template.getForEntity(
+            url("/api/op/products-in-stock/default.json?inStockOnly=true"),
+            String::class.java
+        )
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertNotNull(response.body)
+        assertTrue(response.body!!.contains("rows"))
+    }
+
+    @Test
+    fun `inventory-report should be accessible to admin only`() {
+        val adminTemplate = authTemplate("admin", "admin")
+        val response = adminTemplate.getForEntity(
+            url("/api/op/inventory-report/default.json"),
+            String::class.java
+        )
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertNotNull(response.body)
+        assertTrue(response.body!!.contains("rows"))
+    }
+
+    @Test
+    fun `inventory-report should be denied to guest`() {
+        val guestTemplate = authTemplate("guest", "guest")
+        try {
+            guestTemplate.getForEntity(
+                url("/api/op/inventory-report/default.json"),
+                String::class.java
+            )
+            fail("Expected 403 Forbidden")
+        } catch (e: org.springframework.web.client.HttpClientErrorException) {
+            assertEquals(HttpStatus.FORBIDDEN, e.statusCode)
+        }
+    }
+
+    @Test
+    fun `public-catalog should be accessible to guest`() {
+        val template = authTemplate("guest", "guest")
+        val response = template.getForEntity(
+            url("/api/op/public-catalog/default.json"),
+            String::class.java
+        )
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertNotNull(response.body)
+        assertTrue(response.body!!.contains("rows"))
+    }
+
+    @Test
+    fun `customers from secondary datasource should return data`() {
+        val template = authTemplate("guest", "guest")
+        val response = template.getForEntity(
+            url("/api/op/customers/default.json"),
+            String::class.java
+        )
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertNotNull(response.body)
+        assertTrue(response.body!!.contains("rows"))
+        assertTrue(response.body!!.contains("Atelier graphique"))
+    }
+
+    @Test
+    fun `customer from secondary datasource with parameter should return data`() {
+        val template = authTemplate("guest", "guest")
+        val response = template.getForEntity(
+            url("/api/op/customer/default.json?customerNumber=103"),
+            String::class.java
+        )
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertNotNull(response.body)
+        assertTrue(response.body!!.contains("Atelier graphique"))
     }
 }

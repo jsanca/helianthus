@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: helianthus.core.DataSourceIntegrationTest
--------------------------------------------------------------------------------
-Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.088 s -- in helianthus.core.DataSourceIntegrationTest

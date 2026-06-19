@@ -31,9 +31,9 @@ import kotlin.test.fail
 @Import(SecurityIntegrationTest.UserConfig::class)
 @Sql(statements = [
     "DROP TABLE IF EXISTS products",
-    "CREATE TABLE products (PRODUCTCODE VARCHAR(50) PRIMARY KEY, PRODUCTNAME VARCHAR(100), PRODUCTLINE VARCHAR(50), BUYPRICE DECIMAL(10,2))",
-    "INSERT INTO products (PRODUCTCODE, PRODUCTNAME, PRODUCTLINE, BUYPRICE) VALUES ('P001', 'Widget', 'Classic Cars', 50.00)",
-    "INSERT INTO products (PRODUCTCODE, PRODUCTNAME, PRODUCTLINE, BUYPRICE) VALUES ('P002', 'Gadget', 'Motorcycles', 75.00)"
+    "CREATE TABLE products (PRODUCTCODE VARCHAR(50) PRIMARY KEY, PRODUCTNAME VARCHAR(100), PRODUCTLINE VARCHAR(50), BUYPRICE DECIMAL(10,2), QUANTITYINSTOCK INTEGER DEFAULT 0)",
+    "INSERT INTO products (PRODUCTCODE, PRODUCTNAME, PRODUCTLINE, BUYPRICE, QUANTITYINSTOCK) VALUES ('P001', 'Widget', 'Classic Cars', 50.00, 100)",
+    "INSERT INTO products (PRODUCTCODE, PRODUCTNAME, PRODUCTLINE, BUYPRICE, QUANTITYINSTOCK) VALUES ('P002', 'Gadget', 'Motorcycles', 75.00, 50)"
 ])
 class SecurityIntegrationTest {
 
@@ -103,7 +103,7 @@ class SecurityIntegrationTest {
         val template = restTemplateWithAuth("guest", "guest")
         try {
             template.getForEntity(
-                url("/api/op/admin-only/default.json"), String::class.java)
+                url("/api/op/inventory-report/default.json"), String::class.java)
             fail("Expected 403")
         } catch (e: HttpClientErrorException) {
             assertEquals(HttpStatus.FORBIDDEN, e.statusCode)
@@ -114,7 +114,7 @@ class SecurityIntegrationTest {
     fun `admin can access admin-only operation`() {
         val template = restTemplateWithAuth("admin", "admin")
         val response = template.getForEntity(
-            url("/api/op/admin-only/default.json"), String::class.java)
+            url("/api/op/inventory-report/default.json"), String::class.java)
         assertEquals(HttpStatus.OK, response.statusCode)
     }
 

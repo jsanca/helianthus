@@ -13,7 +13,7 @@ import java.sql.SQLException
 import javax.sql.DataSource
 
 class JdbcGenericDataAccess(
-    private val dataSource: DataSource
+    private val dataSources: Map<String, DataSource>
 ) : GenericDataAccess {
 
     override fun executeQueryStream(
@@ -28,7 +28,13 @@ class JdbcGenericDataAccess(
         var resultSet: ResultSet? = null
 
         try {
-            connection = this.dataSource.connection
+            val ds = dataSources[dataSource] 
+                ?: dataSources[GenericDataAccess.DEFAULT_DATA_SOURCE]
+                ?: throw DataAccessErrorException(
+                    RuntimeException("No datasource found for key: $dataSource")
+                )
+            
+            connection = ds.connection
 
             statement = connection.prepareStatement(query)
 
