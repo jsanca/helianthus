@@ -8,6 +8,7 @@ The current codebase is a modernization of a legacy Java middleware that already
 
 - **[User Guide](USER-GUIDE.md)** — Comprehensive guide for backend developers: operations catalog, pipeline transformations, parameters, security, and Admin UI usage
 - **[Docker Starter Design](docs/DOCKER-STARTER-DESIGN.md)** — Starter environment architecture and seed data
+- **[Server Image Builds](docs/PAKETO.md)** — Dockerfile and Paketo build paths
 - **[Debug Mode](docs/DEBUG_MODE.md)** — Remote debugging, logging, and troubleshooting
 
 ## Why Helianthus Exists
@@ -252,15 +253,19 @@ helianthus/
 │       └── helianthus-realm.json      # Keycloak realm configuration
 ├── docs/
 │   ├── DOCKER-STARTER-DESIGN.md
+│   ├── PAKETO.md                      # Dockerfile and Paketo server image builds
 │   └── legacy/                        # Historical reference files
+├── scripts/
+│   └── build-paketo-server.sh         # Build the server image with Paketo buildpacks
 ├── docker-compose.yml                  # Clean stack (PostgreSQL only)
 ├── docker-compose.starter.yml         # Full stack: 2x PostgreSQL + Keycloak + server + client
+├── docker-compose.starter.paketo.yml  # Override the starter server with the Paketo image
 └── .env.example                       # Environment variables template
 ```
 
 ## Technology
 
-- Java 25, Kotlin 2.3, Maven multi-module
+- Java 25, Kotlin 2.3.21, Maven multi-module
 - Spring Boot 4.1.0 (Spring MVC, Spring JDBC, Spring Security)
 - Spring Security with Keycloak OIDC integration
 - PostgreSQL with HikariCP connection pooling (supports multiple datasources)
@@ -332,13 +337,20 @@ Request: `GET /api/op/products/default.json`
 
 See the [User Guide](USER-GUIDE.md) for a complete walkthrough with screenshots and examples.
 
+### Prerequisites
+
+- Docker with Docker Compose v2
+- Ports `5432`, `5433`, `8080`, `8081`, and `5173` available for the full starter stack
+- Java 25 and Maven for local server builds or the Paketo build path
+- Node.js and npm for local client development
+
 ### Clean stack (PostgreSQL only)
 
 ```bash
-# Start PostgreSQL
+# From the repository root, start PostgreSQL
 docker compose up -d
 
-# Build and run the server
+# Build and run the server locally
 cd server
 mvn clean install -DskipTests
 java -jar helianthus-web/target/helianthus-web-1.0.jar
@@ -349,7 +361,11 @@ curl http://localhost:8080/health
 # {"status":"ok","service":"helianthus"}
 ```
 
-### Starter stack (2x PostgreSQL + Keycloak + server + client)
+The clean stack only starts PostgreSQL. The server and client run separately when using this path.
+
+### Starter stack using the Dockerfile
+
+From the repository root:
 
 ```bash
 docker compose -f docker-compose.starter.yml up --build
@@ -371,6 +387,30 @@ Once running:
 - guest / guest (GUEST role)
 - admin / admin (ADMIN role)
 
+The Admin UI authenticates through Keycloak. For command-line API calls, request a token from the preconfigured public client:
+
+```bash
+GUEST_TOKEN="$(
+  curl -fsS http://localhost:8081/realms/helianthus/protocol/openid-connect/token \
+    -d client_id=helianthus-client \
+    -d grant_type=password \
+    -d username=guest \
+    -d password=guest |
+  jq -r .access_token
+)"
+
+ADMIN_TOKEN="$(
+  curl -fsS http://localhost:8081/realms/helianthus/protocol/openid-connect/token \
+    -d client_id=helianthus-client \
+    -d grant_type=password \
+    -d username=admin \
+    -d password=admin |
+  jq -r .access_token
+)"
+```
+
+The token examples require `jq`. Credentials and the password grant are provided for local demonstration only.
+
 Try these API endpoints:
 
 ```bash
@@ -378,27 +418,36 @@ Try these API endpoints:
 curl http://localhost:8080/health
 
 # All products (requires authentication)
-curl -u guest:guest http://localhost:8080/api/op/products/default.json
+curl -H "Authorization: Bearer $GUEST_TOKEN" \
+  http://localhost:8080/api/op/products/default.json
 
 # Compact view (projected columns)
-curl -u guest:guest http://localhost:8080/api/op/products/compact.json
+curl -H "Authorization: Bearer $GUEST_TOKEN" \
+  http://localhost:8080/api/op/products/compact.json
 
 # Expensive products (filtered + projected)
-curl -u guest:guest http://localhost:8080/api/op/products/expensive.json
+curl -H "Authorization: Bearer $GUEST_TOKEN" \
+  http://localhost:8080/api/op/products/expensive.json
 
 # Single product by code
-curl -u guest:guest "http://localhost:8080/api/op/product/default.json?productCode=S10_1678"
+curl -H "Authorization: Bearer $GUEST_TOKEN" \
+  "http://localhost:8080/api/op/product/default.json?productCode=S10_1678"
 
 # All product lines
-curl -u guest:guest http://localhost:8080/api/op/productlines/default.json
+curl -H "Authorization: Bearer $GUEST_TOKEN" \
+  http://localhost:8080/api/op/productlines/default.json
 
 # Different output formats
-curl -u guest:guest http://localhost:8080/api/op/products/default.xml
-curl -u guest:guest http://localhost:8080/api/op/products/default.html
-curl -u guest:guest http://localhost:8080/api/op/products/default.csv
+curl -H "Authorization: Bearer $GUEST_TOKEN" \
+  http://localhost:8080/api/op/products/default.xml
+curl -H "Authorization: Bearer $GUEST_TOKEN" \
+  http://localhost:8080/api/op/products/default.html
+curl -H "Authorization: Bearer $GUEST_TOKEN" \
+  http://localhost:8080/api/op/products/default.csv
 
 # Customer from secondary database (admin only)
-curl -u admin:admin http://localhost:8080/api/op/customers/default.json
+curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+  http://localhost:8080/api/op/customers/default.json
 ```
 
 Stop the starter stack:
@@ -407,9 +456,65 @@ Stop the starter stack:
 docker compose -f docker-compose.starter.yml down -v
 ```
 
-## Current Status
+The `-v` flag also removes both PostgreSQL volumes, so the seed scripts run again on the next startup.
 
-Phase 4/5 complete. The platform uses a YAML operations catalog with:
+### Starter stack using Paketo
+
+Paketo is an alternative server image build. It uses Spring Boot's `build-image` goal and Cloud Native Buildpacks instead of `server/Dockerfile`.
+
+Build the local image:
+
+```bash
+./scripts/build-paketo-server.sh
+```
+
+This packages both Maven modules and creates `helianthus-server:paketo`. Then start the same starter environment with the Paketo override:
+
+```bash
+docker compose \
+  -f docker-compose.starter.yml \
+  -f docker-compose.starter.paketo.yml \
+  up
+```
+
+The second Compose file changes only the `server` service: it selects the prebuilt Paketo image, uses Paketo's `/workspace` catalog path, and enables remote debugging through `JAVA_TOOL_OPTIONS`.
+
+Do not add `--build` to this command. Compose retains the base file's Dockerfile build configuration when the files are merged; without `--build`, it uses the `helianthus-server:paketo` image already built by Maven.
+
+Stop and reset this variant with the same Compose file set:
+
+```bash
+docker compose \
+  -f docker-compose.starter.yml \
+  -f docker-compose.starter.paketo.yml \
+  down -v
+```
+
+See [Server Image Builds](docs/PAKETO.md) for implementation details and a comparison with the Dockerfile image.
+
+## Development Commands
+
+Run Maven commands from `server/`:
+
+```bash
+mvn clean compile
+mvn clean test
+mvn clean package -DskipTests
+mvn test -pl helianthus-web -Dtest=StarterOperationsSmokeTest
+```
+
+Run client commands from `client/`:
+
+```bash
+npm install
+npm run dev
+npm run build
+npm run lint
+```
+
+## Implemented Capabilities
+
+The platform currently provides:
 - Multiple datasource support (default and secondary)
 - Reusable named queries
 - Named operation configurations with pipeline transformations (project, filter, limit)

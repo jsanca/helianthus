@@ -17,6 +17,7 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager
 import org.springframework.test.context.TestPropertySource
 import org.springframework.test.context.jdbc.Sql
 import org.springframework.web.client.RestTemplate
+import kotlin.test.assertFalse
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -246,7 +247,7 @@ class StarterOperationsSmokeTest {
     }
 
     @Test
-    fun `products-search with optional parameters should return data`() {
+    fun `products-search with no params returns all products`() {
         val template = authTemplate("guest", "guest")
         val response = template.getForEntity(
             url("/api/op/products-search/default.json"),
@@ -255,6 +256,52 @@ class StarterOperationsSmokeTest {
         assertEquals(HttpStatus.OK, response.statusCode)
         assertNotNull(response.body)
         assertTrue(response.body!!.contains("rows"))
+        assertTrue(response.body!!.contains("1969 Harley Davidson"))
+        assertTrue(response.body!!.contains("1952 Alpine Renault 1300"))
+        assertTrue(response.body!!.contains("1968 Ford Mustang"))
+    }
+
+    @Test
+    fun `products-search with productLine filter returns filtered data`() {
+        val template = authTemplate("guest", "guest")
+        val response = template.getForEntity(
+            url("/api/op/products-search/default.json?productLine=Classic Cars"),
+            String::class.java
+        )
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertNotNull(response.body)
+        assertTrue(response.body!!.contains("Classic Cars"))
+        assertTrue(response.body!!.contains("1952 Alpine Renault 1300"))
+        assertTrue(response.body!!.contains("1968 Ford Mustang"))
+        assertFalse(response.body!!.contains("Harley Davidson"))
+    }
+
+    @Test
+    fun `products-search with minPrice filter returns filtered data`() {
+        val template = authTemplate("guest", "guest")
+        val response = template.getForEntity(
+            url("/api/op/products-search/default.json?minPrice=80"),
+            String::class.java
+        )
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertNotNull(response.body)
+        assertTrue(response.body!!.contains("1952 Alpine Renault 1300"))
+        assertTrue(response.body!!.contains("1968 Ford Mustang"))
+        assertFalse(response.body!!.contains("Harley Davidson"))
+    }
+
+    @Test
+    fun `products-search with both filters returns intersection`() {
+        val template = authTemplate("guest", "guest")
+        val response = template.getForEntity(
+            url("/api/op/products-search/default.json?productLine=Classic Cars&minPrice=90"),
+            String::class.java
+        )
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertNotNull(response.body)
+        assertTrue(response.body!!.contains("1968 Ford Mustang"))
+        assertFalse(response.body!!.contains("1952 Alpine Renault 1300"))
+        assertFalse(response.body!!.contains("Harley Davidson"))
     }
 
     @Test

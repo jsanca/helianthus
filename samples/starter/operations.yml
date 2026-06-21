@@ -136,7 +136,11 @@ operations:
   products-search:
     label: Product Search
     description: Search products with optional filters
-    query: SELECT * FROM products ORDER BY productCode
+    query: |
+      SELECT * FROM products
+      WHERE (:productLine IS NULL OR productLine = :productLine)
+        AND (:minPrice IS NULL OR buyPrice >= :minPrice)
+      ORDER BY productCode
     parameters:
       - name: productLine
         type: string

@@ -107,9 +107,13 @@ operations:
         pipeline:
           - limit: 100
 
-  # Optional parameters
+  # Optional parameters with named parameter binding
   products-search:
-    query: SELECT * FROM products ORDER BY PRODUCTCODE
+    query: |
+      SELECT * FROM products
+      WHERE (:productLine IS NULL OR PRODUCTLINE = :productLine)
+        AND (:minPrice IS NULL OR BUYPRICE >= :minPrice)
+      ORDER BY PRODUCTCODE
     parameters:
       - name: productLine
         type: string

@@ -1,0 +1,9 @@
+services:
+  server:
+    build: null
+    image: helianthus-server:paketo
+    environment:
+      JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+      HELIANTHUS_CATALOG_PATH: file:/workspace/operations-starter.yml
+    volumes:
+      - ./samples/starter/operations.yml:/workspace/operations-starter.yml:ro

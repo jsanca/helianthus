@@ -148,6 +148,13 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <version>${spring.boot.version}</version>
+                <configuration>
+                    <image>
+                        <env>
+                            <BP_JVM_VERSION>${java.version}</BP_JVM_VERSION>
+                        </env>
+                    </image>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>
