@@ -203,6 +203,33 @@ operations:
         pipeline:
           - limit: 1
 
+  customer-orders:
+    label: Customer Orders
+    description: View orders for a specific customer
+    datasource: secondary
+    query: SELECT o.ORDERNUMBER, o.ORDERDATE, o.STATUS, c.CUSTOMERNAME FROM orders o JOIN customers c ON o.CUSTOMERNUMBER = c.CUSTOMERNUMBER WHERE o.CUSTOMERNUMBER = ? ORDER BY o.ORDERDATE DESC
+    parameters:
+      - name: customerNumber
+        type: number
+        required: true
+        label: Customer Number
+        input:
+          kind: number
+    configurations:
+      default:
+        pipeline:
+          - limit: 50
+
+  high-value-customers:
+    label: High Value Customers
+    description: Customers with credit limit over 50000
+    datasource: secondary
+    query: SELECT CUSTOMERNUMBER, CUSTOMERNAME, CITY, COUNTRY, CREDITLIMIT FROM customers WHERE CREDITLIMIT > 50000 ORDER BY CREDITLIMIT DESC
+    configurations:
+      default:
+        pipeline:
+          - limit: 100
+
 queries:
   products.base:
     datasource: default

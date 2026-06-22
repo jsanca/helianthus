@@ -1,6 +1,7 @@
 package helianthus.core;
 
 import helianthus.core.access.GenericDataAccess;
+import helianthus.core.access.SqlExecutionPlan;
 import helianthus.core.result.CloseableRowStream;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,11 +35,9 @@ class JdbcRowStreamTest {
     @Test
     void shouldStreamRowsFromDatabase() throws Exception {
         CloseableRowStream stream = dataAccess.executeQueryStream(
-                "SELECT * FROM products ORDER BY id",
-                new String[0],
+                new SqlExecutionPlan("SELECT * FROM products ORDER BY id", java.util.Collections.emptyList()),
                 GenericDataAccess.DEFAULT_DATA_SOURCE,
-                100,
-                new Object[0]);
+                100);
 
         try {
             assertNotNull(stream);
@@ -58,11 +57,9 @@ class JdbcRowStreamTest {
     @Test
     void shouldLimitRowsFromStream() throws Exception {
         CloseableRowStream stream = dataAccess.executeQueryStream(
-                "SELECT * FROM products ORDER BY id",
-                new String[0],
+                new SqlExecutionPlan("SELECT * FROM products ORDER BY id", java.util.Collections.emptyList()),
                 GenericDataAccess.DEFAULT_DATA_SOURCE,
-                100,
-                new Object[0]);
+                100);
 
         try {
             List<Map> rows = collectLimit(stream.getRows().iterator(), 2);
@@ -75,11 +72,9 @@ class JdbcRowStreamTest {
     @Test
     void shouldCloseStreamWithoutErrors() throws Exception {
         CloseableRowStream stream = dataAccess.executeQueryStream(
-                "SELECT * FROM products WHERE id = -1",
-                new String[0],
+                new SqlExecutionPlan("SELECT * FROM products WHERE id = -1", java.util.Collections.emptyList()),
                 GenericDataAccess.DEFAULT_DATA_SOURCE,
-                100,
-                new Object[0]);
+                100);
 
         stream.close();
 

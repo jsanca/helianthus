@@ -81,8 +81,20 @@ object NamedParameterSql {
                 continue
             }
 
-            // Named parameter: :paramName (but not ::)
-            if (c == ':' && i + 1 < sql.length && sql[i + 1] != ':' && sql[i + 1].isLetterOrDigit()) {
+            // PostgreSQL cast operator :: — copy both colons and the type name verbatim
+            if (c == ':' && i + 1 < sql.length && sql[i + 1] == ':') {
+                result.append(c)
+                result.append(sql[i + 1])
+                i += 2
+                while (i < sql.length && (sql[i].isLetterOrDigit() || sql[i] == '_')) {
+                    result.append(sql[i])
+                    i++
+                }
+                continue
+            }
+
+            // Named parameter: :paramName
+            if (c == ':' && i + 1 < sql.length && sql[i + 1].isLetterOrDigit()) {
                 i++ // skip ':'
                 val start = i
                 while (i < sql.length && (sql[i].isLetterOrDigit() || sql[i] == '_')) {
@@ -139,7 +151,15 @@ object NamedParameterSql {
                 }
                 continue
             }
-            if (c == ':' && i + 1 < sql.length && sql[i + 1] != ':' && sql[i + 1].isLetterOrDigit()) {
+            // Skip PostgreSQL cast operator ::
+            if (c == ':' && i + 1 < sql.length && sql[i + 1] == ':') {
+                i += 2
+                while (i < sql.length && (sql[i].isLetterOrDigit() || sql[i] == '_')) {
+                    i++
+                }
+                continue
+            }
+            if (c == ':' && i + 1 < sql.length && sql[i + 1].isLetterOrDigit()) {
                 return true
             }
             i++

@@ -1,22 +1,12 @@
 package helianthus.core.pipeline
 
+import helianthus.core.InvalidParameterException
+import helianthus.core.access.BoundParameter
 import helianthus.core.access.GenericDataAccess
+import helianthus.core.access.SqlExecutionPlan
 import helianthus.core.access.impl.db.NamedParameterSql
 import org.slf4j.LoggerFactory
 
-/**
- * Pipeline step that executes the resolved SQL query and opens a streaming row cursor.
- *
- * Uses [GenericDataAccess.executeQueryStream] to execute the SQL with bound parameters,
- * storing the resulting [helianthus.core.result.CloseableRowStream] in the context.
- *
- * Supports both positional (?) and named (:paramName) parameter styles.
- * For named parameters, all declared parameters are passed (null for missing optional ones).
- * For positional parameters, only non-null values are passed (backward compatible).
- *
- * @param dataAccess the data access layer for query execution
- * @param fetchSize number of rows to fetch per database roundtrip (default 1000)
- */
 class QueryStep(
     private val dataAccess: GenericDataAccess,
     private val fetchSize: Int = 1000
@@ -35,13 +25,19 @@ class QueryStep(
 
         log.debug("Executing streaming query for operation: {}", op.operationId)
 
-        val useNamedParams = NamedParameterSql.hasNamedParameters(op.sql)
+        val plan = buildExecutionPlan(op, bound)
 
-        val stream = if (useNamedParams) {
-            executeWithNamedParams(op, bound)
-        } else {
-            executeWithPositionalParams(op, bound)
-        }
+        log.debug(
+            "Execution plan for {}: {} positional params ({})",
+            op.operationId, plan.params.size,
+            plan.params.joinToString { "${it.name}=${it.value}" }
+        )
+
+        val stream = dataAccess.executeQueryStream(
+            plan,
+            op.datasource ?: GenericDataAccess.DEFAULT_DATA_SOURCE,
+            fetchSize
+        )
 
         context.rowStream = stream
 
@@ -51,58 +47,47 @@ class QueryStep(
         return context
     }
 
-    /**
-     * Named parameter mode: pass ALL parameters including null for missing optional ones.
-     * The SQL uses :paramName syntax and the JDBC layer binds by name.
-     */
-    private fun executeWithNamedParams(
+    private fun buildExecutionPlan(
         op: ResolvedOperation,
         bound: BoundParameters
-    ): helianthus.core.result.CloseableRowStream {
-        val paramNames = op.parameters.map { it.name }.toTypedArray()
-        val typeNames = op.parameters.map { it.type }.toTypedArray()
-        val paramValues = op.parameters.map { paramDef ->
-            bound.values[paramDef.name]
-        }.toTypedArray()
-
-        log.debug(
-            "Named param binding for {}: {} params ({})",
-            op.operationId, paramNames.size,
-            paramNames.zip(paramValues).joinToString { "${it.first}=${it.second}" }
-        )
-
-        return dataAccess.executeQueryStream(
-            op.sql,
-            paramNames,
-            typeNames,
-            op.datasource ?: GenericDataAccess.DEFAULT_DATA_SOURCE,
-            fetchSize,
-            *paramValues
-        )
+    ): SqlExecutionPlan {
+        if (NamedParameterSql.hasNamedParameters(op.sql)) {
+            return buildNamedPlan(op, bound)
+        }
+        return buildPositionalPlan(op, bound)
     }
 
-    /**
-     * Positional parameter mode (backward compatible): only pass non-null values.
-     * The SQL uses ? placeholders and parameters are bound by position.
-     */
-    private fun executeWithPositionalParams(
+    private fun buildNamedPlan(
         op: ResolvedOperation,
         bound: BoundParameters
-    ): helianthus.core.result.CloseableRowStream {
-        val boundPairs = op.parameters.mapNotNull { paramDef ->
+    ): SqlExecutionPlan {
+        val parsed = NamedParameterSql.parse(op.sql)
+        val paramTypeMap = op.parameters.associate { it.name to it.type }
+
+        val expandedParams = parsed.paramNames.map { name ->
+            val type = paramTypeMap[name]
+                ?: throw InvalidParameterException(
+                    "SQL references undeclared parameter ':$name'"
+                )
+            BoundParameter(
+                name = name,
+                type = type,
+                value = bound.values[name]
+            )
+        }
+
+        return SqlExecutionPlan(sql = parsed.actualSql, params = expandedParams)
+    }
+
+    private fun buildPositionalPlan(
+        op: ResolvedOperation,
+        bound: BoundParameters
+    ): SqlExecutionPlan {
+        val params = op.parameters.mapNotNull { paramDef ->
             bound.values[paramDef.name]?.let { value ->
-                Pair(paramDef.type, value)
+                BoundParameter(name = paramDef.name, type = paramDef.type, value = value)
             }
         }
-        val typeNames = boundPairs.map { it.first }.toTypedArray()
-        val paramValues = boundPairs.map { it.second }.toTypedArray()
-
-        return dataAccess.executeQueryStream(
-            op.sql,
-            typeNames,
-            op.datasource ?: GenericDataAccess.DEFAULT_DATA_SOURCE,
-            fetchSize,
-            *paramValues
-        )
+        return SqlExecutionPlan(sql = op.sql, params = params)
     }
 }

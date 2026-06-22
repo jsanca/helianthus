@@ -378,4 +378,58 @@ class StarterOperationsSmokeTest {
         assertNotNull(response.body)
         assertTrue(response.body!!.contains("Atelier graphique"))
     }
+
+    @Test
+    fun `customer-orders from secondary datasource should return orders for customer`() {
+        val template = authTemplate("guest", "guest")
+        val response = template.getForEntity(
+            url("/api/op/customer-orders/default.json?customerNumber=103"),
+            String::class.java
+        )
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertNotNull(response.body)
+        assertTrue(response.body!!.contains("Atelier graphique"))
+        assertTrue(response.body!!.contains("10100"))
+    }
+
+    @Test
+    fun `high-value-customers from secondary datasource should return customers above threshold`() {
+        val template = authTemplate("guest", "guest")
+        val response = template.getForEntity(
+            url("/api/op/high-value-customers/default.json"),
+            String::class.java
+        )
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertNotNull(response.body)
+        assertTrue(response.body!!.contains("Signal Gift Stores"))
+        assertTrue(response.body!!.contains("Australian Collectors"))
+        assertFalse(response.body!!.contains("Atelier graphique"))
+    }
+
+    @Test
+    fun `unauthenticated request should return 401`() {
+        try {
+            restTemplate.getForEntity(
+                url("/api/op/products/default.json"),
+                String::class.java
+            )
+            fail("Expected 401 Unauthorized")
+        } catch (e: org.springframework.web.client.HttpClientErrorException) {
+            assertEquals(HttpStatus.UNAUTHORIZED, e.statusCode)
+        }
+    }
+
+    @Test
+    fun `products-search with invalid minPrice type should return 400`() {
+        val template = authTemplate("guest", "guest")
+        try {
+            template.getForEntity(
+                url("/api/op/products-search/default.json?minPrice=abc"),
+                String::class.java
+            )
+            fail("Expected 400 Bad Request")
+        } catch (e: org.springframework.web.client.HttpClientErrorException) {
+            assertEquals(HttpStatus.BAD_REQUEST, e.statusCode)
+        }
+    }
 }
