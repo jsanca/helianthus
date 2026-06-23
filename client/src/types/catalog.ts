@@ -5,6 +5,7 @@ export interface Catalog {
   datasources: Record<string, DatasourceDefinition>
   queries: Record<string, QueryDefinition>
   operations: Record<string, OperationDefinition>
+  entities: Record<string, EntityDefinition>
 }
 
 export interface DatasourceDefinition {
@@ -60,4 +61,27 @@ export interface ConfigurationDefinition {
 export interface OperationSelection {
   operationId: string
   configurationId: string
+}
+
+export interface EntityDefinition {
+  label?: string
+  description?: string
+  datasource: string
+  table: string
+  primaryKey: string[]
+  fields: string[]
+  security?: EntitySecurityDefinition
+}
+
+export interface EntitySecurityDefinition {
+  read?: EntityRoleDefinition
+  write?: EntityRoleDefinition
+}
+
+export interface EntityRoleDefinition {
+  roles: string[]
+}
+
+export interface EntitySelection {
+  entityId: string
 }

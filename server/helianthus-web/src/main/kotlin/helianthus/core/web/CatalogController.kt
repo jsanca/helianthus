@@ -1,6 +1,8 @@
 package helianthus.core.web
 
+import helianthus.core.catalog.EntityCatalog
 import helianthus.core.catalog.OperationCatalog
+import helianthus.core.security.EntityPermissionEvaluator
 import helianthus.core.security.OperationPermissionEvaluator
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.GetMapping
@@ -9,7 +11,9 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 class CatalogController(
     private val catalog: OperationCatalog,
-    private val permissionEvaluator: OperationPermissionEvaluator
+    private val permissionEvaluator: OperationPermissionEvaluator,
+    private val entityCatalog: EntityCatalog,
+    private val entityPermissionEvaluator: EntityPermissionEvaluator
 ) {
 
     @GetMapping("/api/admin/catalog")
@@ -17,6 +21,12 @@ class CatalogController(
         val auth = SecurityContextHolder.getContext().authentication
         val visibleOps = if (auth != null) {
             permissionEvaluator.filterVisibleOperations(auth)
+        } else {
+            emptyMap()
+        }
+
+        val visibleEntities = if (auth != null) {
+            entityPermissionEvaluator.filterVisibleEntities(auth)
         } else {
             emptyMap()
         }
@@ -56,10 +66,29 @@ class CatalogController(
             )
         }
 
+        val entities = visibleEntities.map { (name, entity) ->
+            EntitySummary(
+                name = name,
+                label = entity.label,
+                description = entity.description,
+                datasource = entity.datasource,
+                table = entity.table,
+                primaryKey = entity.primaryKey.columns,
+                fields = entity.fields,
+                security = entity.security?.let {
+                    EntitySecurityInfo(
+                        read = it.read?.let { read -> EntityRoleInfo(read.roles) },
+                        write = it.write?.let { write -> EntityRoleInfo(write.roles) }
+                    )
+                }
+            )
+        }
+
         return CatalogResponse(
             app = catalog.app?.name,
             formats = listOf("json", "html", "csv", "xml"),
-            operations = operations
+            operations = operations,
+            entities = entities
         )
     }
 }
@@ -67,7 +96,8 @@ class CatalogController(
 data class CatalogResponse(
     val app: String?,
     val formats: List<String>,
-    val operations: List<OperationSummary>
+    val operations: List<OperationSummary>,
+    val entities: List<EntitySummary>
 )
 
 data class OperationSummary(
@@ -101,4 +131,24 @@ data class ConfigurationSummary(
     val name: String,
     val label: String?,
     val description: String?
+)
+
+data class EntitySummary(
+    val name: String,
+    val label: String?,
+    val description: String?,
+    val datasource: String,
+    val table: String,
+    val primaryKey: List<String>,
+    val fields: List<String>,
+    val security: EntitySecurityInfo?
+)
+
+data class EntitySecurityInfo(
+    val read: EntityRoleInfo?,
+    val write: EntityRoleInfo?
+)
+
+data class EntityRoleInfo(
+    val roles: List<String>
 )

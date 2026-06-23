@@ -98,6 +98,41 @@ Operations live in `operations.yml`. Each operation must define either an inline
 - Positional `?`: parameters bound in declaration order; only non-null values passed.
 - Named `:paramName`: detected automatically; all parameters passed (null for missing optional ones). PostgreSQL cast `::` is not treated as a parameter.
 
+## Entities YAML Schema
+
+Entities live in the `entities` section of `operations.yml`. They provide declarative CRUD over database tables without custom SQL.
+
+```yaml
+entities:
+  products:
+    label: Products
+    description: Product catalog
+    datasource: default
+    table: products
+    primaryKey: productCode          # single column or list for composite key
+    fields:                          # explicit whitelist of exposed columns
+      - productCode
+      - productName
+      - productLine
+    security:
+      read:
+        roles: [GUEST, ADMIN]
+```
+
+**Entity endpoints:**
+- `GET /api/entities/{entityName}.{format}` — list with optional filters, pagination, sorting
+- `GET /api/entities/{entityName}/{id}.{format}` — get by primary key
+
+**Query parameters (list):** `limit`, `offset`, `orderBy`, `orderDir`, plus one param per exposed field for exact-match filtering.
+
+**Rules:**
+- `primaryKey` is required (single string or list for composite keys).
+- `fields` is required — explicit whitelist; omitted columns are hidden.
+- `primaryKey` columns must be in `fields`.
+- `datasource` must match a key in the top-level `datasources` map.
+- `security.read.roles` controls read access; omit to allow any authenticated user.
+- `ROLE_ADMIN` always bypasses permission checks.
+
 ## Security Model
 
 - `ROLE_ADMIN` always passes — no per-operation checks applied.
@@ -109,9 +144,15 @@ Operations live in `operations.yml`. Each operation must define either an inline
 
 - **Entry point:** `server/helianthus-web/src/main/kotlin/helianthus/core/HelianthusApplication.kt`
 - **Main controller:** `server/helianthus-web/src/main/kotlin/helianthus/core/web/HelianthusController.kt`
+- **Entity CRUD controller:** `server/helianthus-web/src/main/kotlin/helianthus/core/web/EntityCrudController.kt`
 - **Catalog controller:** `server/helianthus-web/src/main/kotlin/helianthus/core/web/CatalogController.kt`
 - **Catalog loader:** `server/helianthus-web/src/main/kotlin/helianthus/core/config/CatalogConfig.kt`
 - **Catalog model + resolver:** `server/helianthus-web/src/main/kotlin/helianthus/core/catalog/OperationCatalog.kt`
+- **Entity catalog:** `server/helianthus-web/src/main/kotlin/helianthus/core/catalog/EntityCatalog.kt`
+- **Entity SQL builder:** `server/helianthus-web/src/main/kotlin/helianthus/core/catalog/EntityCrudSqlBuilder.kt`
+- **Entity path handler:** `server/helianthus-web/src/main/kotlin/helianthus/core/util/EntityPathHandler.kt`
+- **Entity permission evaluator:** `server/helianthus-web/src/main/kotlin/helianthus/core/security/EntityPermissionEvaluator.kt`
+- **SQL dialect interface:** `server/helianthus/src/main/kotlin/helianthus/core/access/SqlDialect.kt`
 - **Pipeline steps:** `server/helianthus-web/src/main/kotlin/helianthus/core/pipeline/` — one file per step
 - **Pipeline data models:** `server/helianthus-web/src/main/kotlin/helianthus/core/pipeline/PipelineModels.kt`
 - **JDBC data access:** `server/helianthus/src/main/kotlin/helianthus/core/access/impl/db/JdbcGenericDataAccess.kt`

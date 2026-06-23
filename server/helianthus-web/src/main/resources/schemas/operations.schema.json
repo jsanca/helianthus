@@ -162,6 +162,59 @@
           }
         }
       }
+    },
+    "entities": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "label": { "type": "string" },
+          "description": { "type": "string" },
+          "datasource": { "type": "string" },
+          "table": { "type": "string" },
+          "primaryKey": {
+            "oneOf": [
+              { "type": "string" },
+              {
+                "type": "array",
+                "items": { "type": "string" },
+                "minItems": 1
+              }
+            ]
+          },
+          "fields": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          },
+          "security": {
+            "type": "object",
+            "properties": {
+              "read": {
+                "type": "object",
+                "properties": {
+                  "roles": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                },
+                "required": ["roles"]
+              },
+              "write": {
+                "type": "object",
+                "properties": {
+                  "roles": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                },
+                "required": ["roles"]
+              }
+            }
+          }
+        },
+        "required": ["primaryKey", "fields"]
+      }
     }
   },
   "required": ["operations"]

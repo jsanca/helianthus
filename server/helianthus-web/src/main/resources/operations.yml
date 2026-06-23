@@ -76,3 +76,33 @@ operations:
                 gt: 50
           - project: [productCode, productName, buyPrice]
           - limit: 100
+
+entities:
+  products:
+    label: Products
+    description: Product catalog
+    datasource: default
+    table: classicmodels.products
+    primaryKey: productCode
+    fields:
+      - productCode
+      - productName
+      - productLine
+      - buyPrice
+      - quantityInStock
+    security:
+      read:
+        roles: [GUEST, ADMIN]
+
+  productlines:
+    label: Product Lines
+    description: Product line categories
+    datasource: default
+    table: classicmodels.productlines
+    primaryKey: productLine
+    fields:
+      - productLine
+      - textDescription
+    security:
+      read:
+        roles: [GUEST, ADMIN]

@@ -73,4 +73,52 @@ export const mockCatalog: Catalog = {
       },
     },
   },
+  entities: {
+    products: {
+      label: 'Product',
+      description: 'Product catalog records.',
+      datasource: 'default',
+      table: 'products',
+      primaryKey: ['productCode'],
+      fields: [
+        'productCode',
+        'productName',
+        'productLine',
+        'buyPrice',
+        'quantityInStock',
+      ],
+      security: {
+        read: { roles: ['GUEST', 'ADMIN'] },
+      },
+    },
+    productlines: {
+      label: 'Product Line',
+      description: 'Product line categories.',
+      datasource: 'default',
+      table: 'productlines',
+      primaryKey: ['productLine'],
+      fields: ['productLine', 'textDescription'],
+      security: {
+        read: { roles: ['GUEST', 'ADMIN'] },
+      },
+    },
+    customers: {
+      label: 'Customer',
+      description: 'Customer records from the secondary datasource.',
+      datasource: 'secondary',
+      table: 'customers',
+      primaryKey: ['customerNumber'],
+      fields: [
+        'customerNumber',
+        'customerName',
+        'contactFirstName',
+        'contactLastName',
+        'city',
+        'country',
+      ],
+      security: {
+        read: { roles: ['ADMIN'] },
+      },
+    },
+  },
 }

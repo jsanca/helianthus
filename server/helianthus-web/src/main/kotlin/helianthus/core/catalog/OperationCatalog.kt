@@ -131,3 +131,28 @@ data class ConfigurationDef(
     val security: SecurityDef? = null,
     val pipeline: PipelineConfig = PipelineConfig()
 )
+
+data class EntityDef(
+    val label: String? = null,
+    val description: String? = null,
+    val datasource: String = "default",
+    val table: String,
+    val primaryKey: PrimaryKeyDef,
+    val fields: List<String>,
+    val security: EntitySecurityDef? = null
+)
+
+data class PrimaryKeyDef(
+    val columns: List<String>
+) {
+    constructor(singleColumn: String) : this(listOf(singleColumn))
+}
+
+data class EntitySecurityDef(
+    val read: EntityRoleDef? = null,
+    val write: EntityRoleDef? = null
+)
+
+data class EntityRoleDef(
+    val roles: List<String>
+)

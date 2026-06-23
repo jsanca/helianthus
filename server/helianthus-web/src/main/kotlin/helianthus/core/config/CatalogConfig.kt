@@ -1,23 +1,35 @@
 package helianthus.core.config
 
+import com.networknt.schema.JsonSchemaFactory
+import com.networknt.schema.SpecVersion
 import helianthus.core.access.GenericDataAccess
+import helianthus.core.access.SqlDialect
+import helianthus.core.access.impl.db.H2Dialect
 import helianthus.core.access.impl.db.JdbcGenericDataAccess
+import helianthus.core.access.impl.db.PostgresDialect
 import helianthus.core.catalog.AppMetadata
 import helianthus.core.catalog.ConfigurationDef
 import helianthus.core.catalog.DatasourceDef
+import helianthus.core.catalog.EntityCatalog
+import helianthus.core.catalog.EntityDef
+import helianthus.core.catalog.EntityRoleDef
+import helianthus.core.catalog.EntitySecurityDef
 import helianthus.core.catalog.InputDef
 import helianthus.core.catalog.OperationCatalog
 import helianthus.core.catalog.OperationDef
 import helianthus.core.catalog.ParameterDef
+import helianthus.core.catalog.PrimaryKeyDef
 import helianthus.core.catalog.QueryDef
 import helianthus.core.catalog.QueryParameterDef
 import helianthus.core.catalog.SecurityDef
 import helianthus.core.pipeline.PipelineConfig
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.io.ClassPathResource
 import org.springframework.core.io.Resource
 import org.yaml.snakeyaml.Yaml
 import javax.sql.DataSource
@@ -35,14 +47,23 @@ class CatalogConfig(
     }
 
     @Bean
+    fun dialects(@Qualifier("dataSources") dataSources: Map<String, DataSource>): Map<String, SqlDialect> {
+        return dataSources.mapValues { (name, _) ->
+            when {
+                name.contains("h2", ignoreCase = true) -> H2Dialect()
+                else -> PostgresDialect()
+            }
+        }.also {
+            log.info("Created SQL dialects for datasources: {}", it.keys)
+        }
+    }
+
+    @Bean
     fun operationCatalog(): OperationCatalog {
         log.info("Loading operations catalog from: {}", catalogResource)
 
-        val yaml = Yaml()
-        val data = catalogResource.inputStream.use { inputStream ->
-            @Suppress("UNCHECKED_CAST")
-            yaml.load<Map<String, Any>>(inputStream)
-        } ?: throw IllegalStateException("operations.yml is empty")
+        val data = loadCatalogData()
+        validateSchema(data)
 
         val app = parseApp(data["app"])
         val datasources = parseDatasources(data["datasources"])
@@ -54,6 +75,57 @@ class CatalogConfig(
         log.info("Loaded catalog: {} operations, {} queries, {} datasources",
             operations.size, queries.size, datasources.size)
         return catalog
+    }
+
+    @Bean
+    fun entityCatalog(): EntityCatalog {
+        log.info("Loading entity catalog from: {}", catalogResource)
+
+        val data = loadCatalogData()
+        val datasources = parseDatasources(data["datasources"])
+        val entities = parseEntities(data["entities"])
+
+        val entityCatalog = EntityCatalog(entities)
+        entityCatalog.validate(datasources)
+
+        log.info("Loaded entity catalog: {} entities", entities.size)
+        return entityCatalog
+    }
+
+    private fun loadCatalogData(): Map<String, Any> {
+        val yaml = Yaml()
+        return catalogResource.inputStream.use { inputStream ->
+            @Suppress("UNCHECKED_CAST")
+            yaml.load<Map<String, Any>>(inputStream)
+        } ?: throw IllegalStateException("operations.yml is empty")
+    }
+
+    private fun validateSchema(data: Map<String, Any>) {
+        try {
+            val schemaResource = ClassPathResource("schemas/operations.schema.json")
+            if (!schemaResource.exists()) {
+                log.warn("Schema file not found, skipping validation")
+                return
+            }
+
+            val schemaStream = schemaResource.inputStream
+            val factory = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
+            val schema = factory.getSchema(schemaStream)
+
+            val mapper = ObjectMapper()
+            val jsonNode = mapper.valueToTree<com.fasterxml.jackson.databind.JsonNode>(data)
+            val violations = schema.validate(jsonNode)
+
+            if (violations.isNotEmpty()) {
+                val errors = violations.joinToString("\n  - ") { it.message }
+                throw IllegalStateException("Schema validation failed:\n  - $errors")
+            }
+
+            log.info("Schema validation passed")
+        } catch (e: Exception) {
+            if (e is IllegalStateException) throw e
+            log.warn("Schema validation error: {}", e.message)
+        }
     }
 
     private fun parseApp(raw: Any?): AppMetadata? {
@@ -196,6 +268,56 @@ class CatalogConfig(
             roles = (map["roles"] as? List<*>)?.map { it.toString() },
             realm = map["realm"] as? String
         )
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun parseEntities(raw: Any?): Map<String, EntityDef> {
+        if (raw == null) return emptyMap()
+        val map = raw as? Map<String, Map<String, Any>> ?: return emptyMap()
+        return map.mapValues { (name, def) ->
+            parseEntityDef(name, def)
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun parseEntityDef(name: String, raw: Map<String, Any>): EntityDef {
+        val primaryKey = when (val pk = raw["primaryKey"]) {
+            is String -> PrimaryKeyDef(listOf(pk))
+            is List<*> -> PrimaryKeyDef(pk.map { it.toString() })
+            else -> throw IllegalStateException("Entity '$name' must have a 'primaryKey'")
+        }
+
+        val fields = (raw["fields"] as? List<*>)?.map { it.toString() }
+            ?: throw IllegalStateException("Entity '$name' must have a 'fields' list")
+
+        return EntityDef(
+            label = raw["label"] as? String,
+            description = raw["description"] as? String,
+            datasource = raw["datasource"] as? String ?: "default",
+            table = raw["table"] as? String ?: name,
+            primaryKey = primaryKey,
+            fields = fields,
+            security = parseEntitySecurity(raw["security"])
+        )
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun parseEntitySecurity(raw: Any?): EntitySecurityDef? {
+        if (raw == null) return null
+        val map = raw as? Map<String, Any> ?: return null
+        return EntitySecurityDef(
+            read = parseEntityRole(map["read"]),
+            write = parseEntityRole(map["write"])
+        )
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun parseEntityRole(raw: Any?): EntityRoleDef? {
+        if (raw == null) return null
+        val map = raw as? Map<String, Any> ?: return null
+        val roles = (map["roles"] as? List<*>)?.map { it.toString() }
+            ?: return null
+        return EntityRoleDef(roles)
     }
 
     companion object {

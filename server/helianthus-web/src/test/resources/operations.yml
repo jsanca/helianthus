@@ -237,3 +237,50 @@ queries:
   productlines.base:
     datasource: default
     sql: SELECT * FROM productlines ORDER BY PRODUCTLINE
+
+entities:
+  products:
+    label: Products
+    description: Product catalog
+    datasource: default
+    table: PRODUCTS
+    primaryKey: PRODUCTCODE
+    fields:
+      - PRODUCTCODE
+      - PRODUCTNAME
+      - PRODUCTLINE
+      - BUYPRICE
+      - QUANTITYINSTOCK
+    security:
+      read:
+        roles: [GUEST, ADMIN]
+
+  productlines:
+    label: Product Lines
+    description: Product line categories
+    datasource: default
+    table: PRODUCTLINES
+    primaryKey: PRODUCTLINE
+    fields:
+      - PRODUCTLINE
+      - TEXTDESCRIPTION
+    security:
+      read:
+        roles: [GUEST, ADMIN]
+
+  customers:
+    label: Customers
+    description: Customer records from secondary database
+    datasource: default
+    table: CUSTOMERS
+    primaryKey: CUSTOMERNUMBER
+    fields:
+      - CUSTOMERNUMBER
+      - CUSTOMERNAME
+      - CONTACTFIRSTNAME
+      - CONTACTLASTNAME
+      - CITY
+      - COUNTRY
+    security:
+      read:
+        roles: [ADMIN]

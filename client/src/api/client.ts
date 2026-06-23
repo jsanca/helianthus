@@ -29,19 +29,56 @@ export interface CatalogResponse {
   formats: string[]
   operations: Array<{
     name: string
-    type: string
     queryRef: string | null
     datasource: string | null
+    label?: string | null
+    description?: string | null
     parameters: Array<{
       name: string
       type: string
       required: boolean
+      label?: string | null
+      description?: string | null
+      placeholder?: string | null
+      input?: {
+        kind: 'text' | 'number' | 'select' | 'boolean' | 'date'
+        options?: string[] | null
+        min?: number | null
+        max?: number | null
+        step?: number | null
+      } | null
     }>
     configurations: Array<{
       name: string
+      label?: string | null
+      description?: string | null
       pipeline?: unknown
     }>
   }>
+  entities?: Array<{
+    name: string
+    label?: string | null
+    description?: string | null
+    datasource: string
+    table: string
+    primaryKey: string[]
+    fields: string[]
+    security?: {
+      read?: { roles: string[] } | null
+      write?: { roles: string[] } | null
+    } | null
+  }>
+}
+
+export interface ResultFrameResponse {
+  schema?: {
+    columns?: Array<{ name: string; type?: string; nullable?: boolean }>
+  }
+  rows?: Array<Record<string, unknown>>
+  metadata?: {
+    rowCount?: number
+    durationMs?: number
+  }
 }
 
 type TokenProvider = () => Promise<string | undefined>
@@ -140,6 +177,35 @@ export class ApiClient {
       )
     }
   }
+
+  async listEntity(
+    entityId: string,
+    params: URLSearchParams,
+  ): Promise<ResultFrameResponse> {
+    const query = params.toString()
+    const response = await this.request(
+      `/api/entities/${encodeURIComponent(entityId)}.json${query ? `?${query}` : ''}`,
+      {
+        headers: { Accept: 'application/json' },
+      },
+    )
+    return response.json() as Promise<ResultFrameResponse>
+  }
+
+  async getEntityRecord(
+    entityId: string,
+    primaryKey: string | number,
+  ): Promise<ResultFrameResponse> {
+    const response = await this.request(
+      `/api/entities/${encodeURIComponent(entityId)}/${encodeURIComponent(
+        String(primaryKey),
+      )}.json`,
+      {
+        headers: { Accept: 'application/json' },
+      },
+    )
+    return response.json() as Promise<ResultFrameResponse>
+  }
 }
 
 export const mapCatalogResponse = (response: CatalogResponse): Catalog => ({
@@ -152,17 +218,49 @@ export const mapCatalogResponse = (response: CatalogResponse): Catalog => ({
       {
         queryRef: operation.queryRef ?? undefined,
         datasource: operation.datasource ?? undefined,
-        parameters: operation.parameters,
+        label: operation.label ?? undefined,
+        description: operation.description ?? undefined,
+        parameters: operation.parameters.map((parameter) => ({
+          ...parameter,
+          label: parameter.label ?? undefined,
+          description: parameter.description ?? undefined,
+          placeholder: parameter.placeholder ?? undefined,
+          input: parameter.input
+            ? {
+                ...parameter.input,
+                options: parameter.input.options ?? undefined,
+                min: parameter.input.min ?? undefined,
+                max: parameter.input.max ?? undefined,
+                step: parameter.input.step ?? undefined,
+              }
+            : undefined,
+        })),
         configurations: Object.fromEntries(
           operation.configurations.map((configuration) => [
             configuration.name,
             {
+              label: configuration.label ?? undefined,
+              description: configuration.description ?? undefined,
               pipeline: Array.isArray(configuration.pipeline)
                 ? configuration.pipeline
                 : [],
             },
           ]),
         ),
+      },
+    ]),
+  ),
+  entities: Object.fromEntries(
+    (response.entities ?? []).map((entity) => [
+      entity.name,
+      {
+        label: entity.label ?? undefined,
+        description: entity.description ?? undefined,
+        datasource: entity.datasource,
+        table: entity.table,
+        primaryKey: entity.primaryKey,
+        fields: entity.fields,
+        security: entity.security ?? undefined,
       },
     ]),
   ),

@@ -1,5 +1,6 @@
 package helianthus.core.web
 
+import helianthus.core.EntityNotFoundException
 import helianthus.core.InvalidParameterException
 import helianthus.core.NoMappingException
 import helianthus.core.exception.InvalidOperationPathException
@@ -47,6 +48,20 @@ class HelianthusExceptionHandler {
     @ExceptionHandler(NoMappingException::class)
     fun handleNoMapping(ex: NoMappingException): ResponseEntity<String> {
         log.warn("Operation not found: {}", ex.message)
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .contentType(MediaType.TEXT_PLAIN)
+            .body(ex.message)
+    }
+
+    /**
+     * Handles entities that are not found in the catalog.
+     *
+     * @param ex the entity not found exception
+     * @return 404 Not Found with the entity message
+     */
+    @ExceptionHandler(EntityNotFoundException::class)
+    fun handleEntityNotFound(ex: EntityNotFoundException): ResponseEntity<String> {
+        log.warn("Entity not found: {}", ex.message)
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
             .contentType(MediaType.TEXT_PLAIN)
             .body(ex.message)
