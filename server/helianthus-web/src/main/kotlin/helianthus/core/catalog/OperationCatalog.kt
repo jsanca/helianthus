@@ -132,15 +132,23 @@ data class ConfigurationDef(
     val pipeline: PipelineConfig = PipelineConfig()
 )
 
+data class FieldDef(
+    val name: String,
+    val column: String = name
+)
+
 data class EntityDef(
     val label: String? = null,
     val description: String? = null,
     val datasource: String = "default",
     val table: String,
     val primaryKey: PrimaryKeyDef,
-    val fields: List<String>,
+    val fields: List<FieldDef>,
     val security: EntitySecurityDef? = null
-)
+) {
+    val fieldNames: List<String> get() = fields.map { it.name }
+    fun fieldByName(name: String): FieldDef? = fields.find { it.name == name }
+}
 
 data class PrimaryKeyDef(
     val columns: List<String>

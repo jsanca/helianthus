@@ -30,9 +30,9 @@ class EntityCatalog(
         }
 
         entity.primaryKey.columns.forEach { pkCol ->
-            if (pkCol !in entity.fields) {
+            if (entity.fields.none { it.name == pkCol }) {
                 throw IllegalStateException(
-                    "Entity '$name' primary key column '$pkCol' is not in fields list ${entity.fields}"
+                    "Entity '$name' primary key column '$pkCol' is not in fields list ${entity.fieldNames}"
                 )
             }
         }

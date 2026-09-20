@@ -74,7 +74,7 @@ class CatalogController(
                 datasource = entity.datasource,
                 table = entity.table,
                 primaryKey = entity.primaryKey.columns,
-                fields = entity.fields,
+                fields = entity.fieldNames,
                 security = entity.security?.let {
                     EntitySecurityInfo(
                         read = it.read?.let { read -> EntityRoleInfo(read.roles) },

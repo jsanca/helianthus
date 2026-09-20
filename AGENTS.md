@@ -92,7 +92,36 @@ GET /api/op/{operationId}/{configurationId}.{format}
 
 ## Operations YAML Schema
 
-Operations live in `operations.yml`. Each operation must define either an inline `query` or a `queryRef` pointing to the top-level `queries` block.
+Operations live in `operations.yml`. Each operation must define either an inline `query` or a `queryRef` pointing to the top-level `queries` block. The `queries` block lets multiple operations share SQL.
+
+```yaml
+queries:                          # optional reusable queries
+  myquery.base:
+    datasource: default
+    sql: SELECT * FROM table
+
+operations:
+  operation-id:
+    label: Human Name
+    query: SELECT * FROM t WHERE id = ?   # inline SQL (or use queryRef)
+    queryRef: myquery.base                # mutually exclusive with query
+    datasource: secondary                 # overrides query-level datasource
+    security:
+      roles: [ADMIN, GUEST]
+    parameters:
+      - name: id
+        type: string | number | boolean
+        required: true | false
+    configurations:
+      default:
+        pipeline:
+          - project: [col1, col2]        # column whitelist (null = all)
+          - filter:
+              col1: {gt: 50}             # operators: eq neq gt gte lt lte in
+          - limit: 100
+          - derive:
+              newCol: existingCol        # computed column aliases
+```
 
 **SQL parameter styles** — both are supported in the same codebase:
 - Positional `?`: parameters bound in declaration order; only non-null values passed.
@@ -185,9 +214,12 @@ Do not introduce: WebFlux, R2DBC, cloud functions, LLM/DSL features.
 ## Important Gotchas
 
 - Kotlin sources live in `src/main/kotlin` — the `kotlin-maven-plugin` does not compile files placed under `src/main/java`.
-- The `.gitignore` is minimal and does not exclude `.env`, `.idea/`, or `target/`.
-- Datasource bean names in `DataSourceConfig.kt` are `"default"` and `"secondary"` — the `datasource` field in `operations.yml` must match exactly.
+- The `.gitignore` does not exclude `.env` — be careful with secrets.
+- Kotlin `jvmTarget` is 21 while `java.version` is 25 — this is intentional, do not "fix" it.
+- Datasource bean names in `DataSourceConfig.kt` are `"default"` and `"secondary"` (map keys) — the `datasource` field in `operations.yml` must match exactly. The Spring bean methods are `primaryDataSource()` and `secondaryDataSource()`.
 - The secondary datasource runs on port 5433 by default (separate PostgreSQL instance).
+- `kotlin-maven-allopen` with the `spring` compiler plugin is enabled — Spring proxying works without `open` keyword on classes/methods.
+- No CI workflows exist in `.github/workflows/`.
 
 ## Logging
 

@@ -129,7 +129,7 @@ class EntityCrudController(
         val orderBy = request.getParameter("orderBy")
         val orderDir = parseOrderDir(request.getParameter("orderDir"))
 
-        if (orderBy != null && orderBy !in entity.fields) {
+        if (orderBy != null && entity.fieldByName(orderBy) == null) {
             throw InvalidParameterException("orderBy column '$orderBy' is not in entity fields")
         }
 
@@ -186,7 +186,7 @@ class EntityCrudController(
         request.parameterNames.asSequence()
             .filter { it !in reservedParams }
             .forEach { paramName ->
-                if (paramName !in entity.fields) {
+                if (entity.fieldByName(paramName) == null) {
                     throw InvalidParameterException("Filter column '$paramName' is not in entity fields")
                 }
                 val value = request.getParameter(paramName)

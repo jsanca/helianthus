@@ -346,7 +346,8 @@ input {
   margin: 0 auto 20px;
 }
 
-.runner {
+.runner,
+.entity-browser {
   width: min(100%, 1480px);
   margin: 0 auto;
 }
@@ -460,6 +461,28 @@ input {
   margin-top: 20px;
 }
 
+.entity-toolbar-card,
+.entity-table-card {
+  margin-bottom: 20px;
+  border-color: #e0e7e1;
+  box-shadow: 0 10px 30px rgba(22, 61, 43, 0.04);
+}
+
+.entity-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 0.8fr) minmax(180px, 0.8fr) minmax(260px, 1fr) auto;
+  gap: 14px;
+  align-items: end;
+}
+
+.entity-toolbar .ant-form-item {
+  margin-bottom: 0;
+}
+
+.order-dir-select {
+  width: 92px;
+}
+
 .result-empty {
   display: grid;
   min-height: 180px;
@@ -561,6 +584,10 @@ input {
 
   .datasource-chip {
     width: 100%;
+  }
+
+  .entity-toolbar {
+    grid-template-columns: 1fr;
   }
 }
 

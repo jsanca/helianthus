@@ -212,56 +212,53 @@ export const mapCatalogResponse = (response: CatalogResponse): Catalog => ({
   app: { name: response.app ?? 'Helianthus API' },
   datasources: {},
   queries: {},
-  operations: Object.fromEntries(
-    response.operations.map((operation) => [
-      operation.name,
-      {
-        queryRef: operation.queryRef ?? undefined,
-        datasource: operation.datasource ?? undefined,
-        label: operation.label ?? undefined,
-        description: operation.description ?? undefined,
-        parameters: operation.parameters.map((parameter) => ({
-          ...parameter,
-          label: parameter.label ?? undefined,
-          description: parameter.description ?? undefined,
-          placeholder: parameter.placeholder ?? undefined,
-          input: parameter.input
-            ? {
-                ...parameter.input,
-                options: parameter.input.options ?? undefined,
-                min: parameter.input.min ?? undefined,
-                max: parameter.input.max ?? undefined,
-                step: parameter.input.step ?? undefined,
-              }
-            : undefined,
-        })),
-        configurations: Object.fromEntries(
-          operation.configurations.map((configuration) => [
-            configuration.name,
-            {
-              label: configuration.label ?? undefined,
-              description: configuration.description ?? undefined,
-              pipeline: Array.isArray(configuration.pipeline)
-                ? configuration.pipeline
-                : [],
-            },
-          ]),
-        ),
-      },
-    ]),
-  ),
-  entities: Object.fromEntries(
-    (response.entities ?? []).map((entity) => [
-      entity.name,
-      {
-        label: entity.label ?? undefined,
-        description: entity.description ?? undefined,
-        datasource: entity.datasource,
-        table: entity.table,
-        primaryKey: entity.primaryKey,
-        fields: entity.fields,
-        security: entity.security ?? undefined,
-      },
-    ]),
-  ),
+  operations: response.operations.map((operation) => ({
+    name: operation.name,
+    queryRef: operation.queryRef ?? undefined,
+    datasource: operation.datasource ?? undefined,
+    label: operation.label ?? undefined,
+    description: operation.description ?? undefined,
+    parameters: operation.parameters.map((parameter) => ({
+      ...parameter,
+      label: parameter.label ?? undefined,
+      description: parameter.description ?? undefined,
+      placeholder: parameter.placeholder ?? undefined,
+      input: parameter.input
+        ? {
+            ...parameter.input,
+            options: parameter.input.options ?? undefined,
+            min: parameter.input.min ?? undefined,
+            max: parameter.input.max ?? undefined,
+            step: parameter.input.step ?? undefined,
+          }
+        : undefined,
+    })),
+    configurations: Object.fromEntries(
+      operation.configurations.map((configuration) => [
+        configuration.name,
+        {
+          label: configuration.label ?? undefined,
+          description: configuration.description ?? undefined,
+          pipeline: Array.isArray(configuration.pipeline)
+            ? configuration.pipeline
+            : [],
+        },
+      ]),
+    ),
+  })),
+  entities: (response.entities ?? []).map((entity) => ({
+    name: entity.name,
+    label: entity.label ?? undefined,
+    description: entity.description ?? undefined,
+    datasource: entity.datasource,
+    table: entity.table,
+    primaryKey: entity.primaryKey,
+    fields: entity.fields,
+    security: entity.security
+      ? {
+          read: entity.security.read ?? undefined,
+          write: entity.security.write ?? undefined,
+        }
+      : undefined,
+  })),
 })

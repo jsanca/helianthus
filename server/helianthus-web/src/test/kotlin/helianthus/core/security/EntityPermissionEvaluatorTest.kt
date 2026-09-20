@@ -25,7 +25,7 @@ class EntityPermissionEvaluatorTest {
             datasource = "default",
             table = "products",
             primaryKey = PrimaryKeyDef("id"),
-            fields = listOf("id", "name"),
+            fields = listOf(FieldDef("id"), FieldDef("name")),
             security = security
         )
     }
@@ -81,7 +81,7 @@ class EntityPermissionEvaluatorTest {
             datasource = "default",
             table = "products",
             primaryKey = PrimaryKeyDef("id"),
-            fields = listOf("id", "name"),
+            fields = listOf(FieldDef("id"), FieldDef("name")),
             security = null
         )
         val catalog = EntityCatalog(mapOf("products" to entity))

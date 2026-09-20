@@ -14,7 +14,10 @@ import helianthus.core.catalog.EntityCatalog
 import helianthus.core.catalog.EntityDef
 import helianthus.core.catalog.EntityRoleDef
 import helianthus.core.catalog.EntitySecurityDef
+import helianthus.core.catalog.FieldDef
 import helianthus.core.catalog.InputDef
+import helianthus.core.catalog.LowercaseNamingStrategy
+import helianthus.core.catalog.PhysicalColumnNamingStrategy
 import helianthus.core.catalog.OperationCatalog
 import helianthus.core.catalog.OperationDef
 import helianthus.core.catalog.ParameterDef
@@ -39,6 +42,11 @@ class CatalogConfig(
     @Value("\${helianthus.catalog.path:classpath:operations.yml}")
     private val catalogResource: Resource
 ) {
+    private val namingStrategy: PhysicalColumnNamingStrategy = LowercaseNamingStrategy()
+
+    @Bean
+    fun physicalColumnNamingStrategy(): PhysicalColumnNamingStrategy = namingStrategy
+
 
     @Bean
     fun genericDataAccess(@Qualifier("dataSources") dataSources: Map<String, DataSource>): GenericDataAccess {
@@ -287,8 +295,18 @@ class CatalogConfig(
             else -> throw IllegalStateException("Entity '$name' must have a 'primaryKey'")
         }
 
-        val fields = (raw["fields"] as? List<*>)?.map { it.toString() }
-            ?: throw IllegalStateException("Entity '$name' must have a 'fields' list")
+        val fields = (raw["fields"] as? List<*>)?.map { item ->
+            when (item) {
+                is String -> FieldDef(name = item, column = namingStrategy.toPhysicalColumn(item))
+                is Map<*, *> -> {
+                    val fieldName = item["name"]?.toString()
+                        ?: throw IllegalStateException("Entity '$name' field entry must have a 'name'")
+                    val column = item["column"]?.toString() ?: namingStrategy.toPhysicalColumn(fieldName)
+                    FieldDef(name = fieldName, column = column)
+                }
+                else -> throw IllegalStateException("Entity '$name' field must be a string or {name, column} map")
+            }
+        } ?: throw IllegalStateException("Entity '$name' must have a 'fields' list")
 
         return EntityDef(
             label = raw["label"] as? String,

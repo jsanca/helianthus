@@ -19,8 +19,9 @@ export const mockCatalog: Catalog = {
       sql: 'SELECT * FROM classicmodels.productlines',
     },
   },
-  operations: {
-    'all-products': {
+  operations: [
+    {
+      name: 'all-products',
       query: 'SELECT * FROM classicmodels.products',
       configurations: {
         default: {
@@ -28,7 +29,8 @@ export const mockCatalog: Catalog = {
         },
       },
     },
-    'all-productlines': {
+    {
+      name: 'all-productlines',
       query: 'SELECT * FROM classicmodels.productlines',
       configurations: {
         default: {
@@ -36,7 +38,8 @@ export const mockCatalog: Catalog = {
         },
       },
     },
-    'get-product': {
+    {
+      name: 'get-product',
       query: 'SELECT * FROM classicmodels.products WHERE productCode = ?',
       parameters: [
         {
@@ -51,7 +54,8 @@ export const mockCatalog: Catalog = {
         },
       },
     },
-    products: {
+    {
+      name: 'products',
       queryRef: 'products.base',
       configurations: {
         default: {
@@ -72,9 +76,10 @@ export const mockCatalog: Catalog = {
         },
       },
     },
-  },
-  entities: {
-    products: {
+  ],
+  entities: [
+    {
+      name: 'products',
       label: 'Product',
       description: 'Product catalog records.',
       datasource: 'default',
@@ -91,7 +96,8 @@ export const mockCatalog: Catalog = {
         read: { roles: ['GUEST', 'ADMIN'] },
       },
     },
-    productlines: {
+    {
+      name: 'productlines',
       label: 'Product Line',
       description: 'Product line categories.',
       datasource: 'default',
@@ -102,7 +108,8 @@ export const mockCatalog: Catalog = {
         read: { roles: ['GUEST', 'ADMIN'] },
       },
     },
-    customers: {
+    {
+      name: 'customers',
       label: 'Customer',
       description: 'Customer records from the secondary datasource.',
       datasource: 'secondary',
@@ -120,5 +127,5 @@ export const mockCatalog: Catalog = {
         read: { roles: ['ADMIN'] },
       },
     },
-  },
+  ],
 }

@@ -4,7 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What Helianthus Is
 
-A declarative backend platform: developers define SQL operations in a YAML catalog (`operations.yml`), and Helianthus automatically exposes them as HTTP endpoints returning JSON, XML, HTML, or CSV. No custom controllers needed.
+A declarative backend platform: developers define SQL operations and table entities in a YAML catalog (`operations.yml`), and Helianthus automatically exposes them as HTTP endpoints returning JSON, XML, HTML, or CSV. No custom controllers needed.
+
+- **Operations** (`/api/op/…`) — arbitrary SQL queries with a configurable pipeline (project, filter, derive, limit).
+- **Entities** (`/api/entities/…`) — declarative table projections with auto-generated list/get SQL, field whitelists, and composite-key support.
 
 ## Module Structure
 
@@ -77,6 +80,7 @@ All have sensible defaults for local dev. Override via environment or `.env`:
 
 ## Request Flow
 
+**Operations:**
 ```
 GET /api/op/{operationId}/{configurationId}.{format}
   → HelianthusController
@@ -90,11 +94,27 @@ GET /api/op/{operationId}/{configurationId}.{format}
 
 `configurationId` defaults to `"default"` when omitted. Format extension selects the converter.
 
-`GET /api/admin/catalog` returns a JSON summary of all operations visible to the authenticated user (used by the client UI).
+**Entities:**
+```
+GET /api/entities/{entityName}.{format}              # list (supports ?limit, ?offset, ?orderBy, ?orderDir, ?field=value)
+GET /api/entities/{entityName}/{id}.{format}         # get by primary key (composite: /id1/id2)
+  → EntityCrudController
+  → EntityPathHandler (parse URL)
+  → EntityPermissionEvaluator (check read roles)
+  → EntityCatalog (resolve from operations.yml)
+  → EntityCrudSqlBuilder (auto-generate SQL via SqlDialect)
+  → JdbcGenericDataAccess → ResultFrame → message converter
+```
 
-## Operations YAML Schema
+`GET /api/admin/catalog` returns a JSON summary of all operations **and entities** visible to the authenticated user (used by the client UI).
 
-Operations live in `operations.yml`. Each operation must define either an inline `query` or a `queryRef` pointing to the top-level `queries` block. The `queries` block lets multiple operations share SQL.
+## YAML Catalog Schema
+
+The catalog file (`operations.yml`) has three top-level keys: `queries`, `operations`, and `entities`.
+
+### Operations
+
+Each operation must define either an inline `query` or a `queryRef` pointing to the top-level `queries` block. The `queries` block lets multiple operations share SQL.
 
 ```yaml
 queries:                          # optional reusable queries
@@ -140,29 +160,62 @@ operations:
 - Positional `?`: parameters bound in declaration order; only non-null values passed.
 - Named `:paramName`: detected automatically; all parameters passed (null for missing optional ones). PostgreSQL cast `::` is not treated as a parameter.
 
+### Entities
+
+Entities expose a database table as list/get endpoints with an explicit field whitelist. SQL is auto-generated — no `query` needed.
+
+```yaml
+entities:
+  products:
+    label: Products
+    description: Product catalog
+    datasource: default           # must match DataSourceConfig bean name
+    table: products               # actual table name in the database
+    primaryKey: productCode       # single field, or list for composite keys
+    fields: [productCode, productName, price]   # explicit whitelist; unlisted columns are inaccessible
+    security:
+      read:
+        roles: [GUEST, ADMIN]    # roles that can list/get (without ROLE_ prefix)
+```
+
+`EntityCrudSqlBuilder` generates SQL using a `SqlDialect` interface (`PostgresDialect` in production, `H2Dialect` in tests) — this is how identifier quoting and LIMIT/OFFSET differ between environments.
+
 ## Security Model
 
-- `ROLE_ADMIN` always passes — no per-operation checks applied.
+- `ROLE_ADMIN` always passes — no per-operation or per-entity checks applied.
 - Operations with no `security.roles` are accessible to any authenticated user.
 - Roles in YAML (e.g., `ADMIN`) map to Spring authority `ROLE_ADMIN`.
-- Security can be defined at operation level and/or configuration level; both sets are unioned.
+- Operation security can be defined at operation level and/or configuration level; both sets are unioned.
+- Entity security uses `security.read.roles` (write roles are reserved for a future phase). Entities with no security block are accessible to any authenticated user.
 
 ## Key Source Locations
 
+**Operations (query pipeline):**
 - **Entry point:** `server/helianthus-web/src/main/kotlin/helianthus/core/HelianthusApplication.kt`
-- **Main controller:** `server/helianthus-web/src/main/kotlin/helianthus/core/web/HelianthusController.kt`
+- **Operations controller:** `server/helianthus-web/src/main/kotlin/helianthus/core/web/HelianthusController.kt`
 - **Catalog controller:** `server/helianthus-web/src/main/kotlin/helianthus/core/web/CatalogController.kt`
 - **Catalog loader:** `server/helianthus-web/src/main/kotlin/helianthus/core/config/CatalogConfig.kt`
-- **Catalog model + resolver:** `server/helianthus-web/src/main/kotlin/helianthus/core/catalog/OperationCatalog.kt`
+- **Catalog model + resolver:** `server/helianthus-web/src/main/kotlin/helianthus/core/catalog/OperationCatalog.kt` (all `*Def` data classes live here)
 - **Pipeline steps:** `server/helianthus-web/src/main/kotlin/helianthus/core/pipeline/` — one file per step
 - **Pipeline data models:** `server/helianthus-web/src/main/kotlin/helianthus/core/pipeline/PipelineModels.kt`
+- **Operation security:** `server/helianthus-web/src/main/kotlin/helianthus/core/security/OperationPermissionEvaluator.kt`
+
+**Entities (CRUD):**
+- **Entity controller:** `server/helianthus-web/src/main/kotlin/helianthus/core/web/EntityCrudController.kt`
+- **Entity path parser:** `server/helianthus-web/src/main/kotlin/helianthus/core/util/EntityPathHandler.kt`
+- **Entity catalog:** `server/helianthus-web/src/main/kotlin/helianthus/core/catalog/EntityCatalog.kt`
+- **SQL builder:** `server/helianthus-web/src/main/kotlin/helianthus/core/catalog/EntityCrudSqlBuilder.kt`
+- **Entity security:** `server/helianthus-web/src/main/kotlin/helianthus/core/security/EntityPermissionEvaluator.kt`
+
+**Shared infrastructure:**
 - **JDBC data access:** `server/helianthus/src/main/kotlin/helianthus/core/access/impl/db/JdbcGenericDataAccess.kt`
 - **Named parameter SQL parser:** `server/helianthus/src/main/kotlin/helianthus/core/access/impl/db/NamedParameterSql.kt`
+- **SQL dialect interface:** `server/helianthus/src/main/kotlin/helianthus/core/access/SqlDialect.kt` (implementations: `PostgresDialect`, `H2Dialect`)
 - **Output converters:** `server/helianthus-web/src/main/kotlin/helianthus/core/web/converter/` — Json, Xml, Html, Csv
-- **Security:** `server/helianthus-web/src/main/kotlin/helianthus/core/config/SecurityConfig.kt` + `server/helianthus-web/src/main/kotlin/helianthus/core/security/OperationPermissionEvaluator.kt`
+- **Security config:** `server/helianthus-web/src/main/kotlin/helianthus/core/config/SecurityConfig.kt`
 - **Datasource wiring:** `server/helianthus-web/src/main/kotlin/helianthus/core/config/DataSourceConfig.kt`
-- **Operations catalog (production):** `server/helianthus-web/src/main/resources/operations.yml`
-- **Operations catalog (test):** `server/helianthus-web/src/test/resources/operations.yml`
+- **Catalog YAML (production):** `server/helianthus-web/src/main/resources/operations.yml`
+- **Catalog YAML (test):** `server/helianthus-web/src/test/resources/operations.yml`
 - **Starter catalog + seed data:** `samples/starter/`
 
 ## Testing
@@ -170,7 +223,7 @@ operations:
 - JUnit Jupiter via `spring-boot-starter-test`; H2 in-memory for both datasources in tests.
 - Integration tests use `@SpringBootTest` + `@Sql` for schema/data setup.
 - `server/helianthus-web/src/test/resources/application.properties` sets H2 URLs and disables OAuth2 (`helianthus.security.oauth2.enabled=false`).
-- Production `operations.yml` and test `operations.yml` must stay in sync on catalog shape (test version uses H2-compatible SQL).
+- Production `operations.yml` and test `operations.yml` must stay in sync on catalog shape — the test version uses H2-compatible SQL and `H2Dialect` (uppercase table names, `LIMIT/OFFSET` syntax).
 
 ## Technology Baseline
 
@@ -193,7 +246,9 @@ Do not introduce: WebFlux, R2DBC, cloud functions, LLM/DSL features.
 
 ## Logging
 
-Use SLF4J. Log startup decisions at INFO, query execution and incoming requests at DEBUG, failures at ERROR. Prefer structured context fields: `operationId`, `configurationId`, `format`, `datasource`, `durationMs`, `rowCount`. Never log passwords, tokens, or raw SQL parameters containing private data.
+Use SLF4J. Log startup decisions at INFO, query execution and incoming requests at DEBUG, failures at ERROR.
+
+`RequestLoggingFilter` sets MDC context for every request: `requestId` (from `X-Request-ID` header or generated), `user`, `operationId`, `configurationId`, `format`. Prefer these plus `datasource`, `durationMs`, `rowCount` as structured log fields. Never log passwords, tokens, or raw SQL parameters containing private data.
 
 ## Commit Style
 

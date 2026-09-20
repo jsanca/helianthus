@@ -246,11 +246,16 @@ entities:
     table: PRODUCTS
     primaryKey: PRODUCTCODE
     fields:
-      - PRODUCTCODE
-      - PRODUCTNAME
-      - PRODUCTLINE
-      - BUYPRICE
-      - QUANTITYINSTOCK
+      - name: PRODUCTCODE
+        column: PRODUCTCODE
+      - name: PRODUCTNAME
+        column: PRODUCTNAME
+      - name: PRODUCTLINE
+        column: PRODUCTLINE
+      - name: BUYPRICE
+        column: BUYPRICE
+      - name: QUANTITYINSTOCK
+        column: QUANTITYINSTOCK
     security:
       read:
         roles: [GUEST, ADMIN]
@@ -262,8 +267,10 @@ entities:
     table: PRODUCTLINES
     primaryKey: PRODUCTLINE
     fields:
-      - PRODUCTLINE
-      - TEXTDESCRIPTION
+      - name: PRODUCTLINE
+        column: PRODUCTLINE
+      - name: TEXTDESCRIPTION
+        column: TEXTDESCRIPTION
     security:
       read:
         roles: [GUEST, ADMIN]
@@ -275,12 +282,18 @@ entities:
     table: CUSTOMERS
     primaryKey: CUSTOMERNUMBER
     fields:
-      - CUSTOMERNUMBER
-      - CUSTOMERNAME
-      - CONTACTFIRSTNAME
-      - CONTACTLASTNAME
-      - CITY
-      - COUNTRY
+      - name: CUSTOMERNUMBER
+        column: CUSTOMERNUMBER
+      - name: CUSTOMERNAME
+        column: CUSTOMERNAME
+      - name: CONTACTFIRSTNAME
+        column: CONTACTFIRSTNAME
+      - name: CONTACTLASTNAME
+        column: CONTACTLASTNAME
+      - name: CITY
+        column: CITY
+      - name: COUNTRY
+        column: COUNTRY
     security:
       read:
         roles: [ADMIN]

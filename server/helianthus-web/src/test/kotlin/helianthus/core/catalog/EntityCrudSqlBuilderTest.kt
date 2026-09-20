@@ -18,6 +18,17 @@ class EntityCrudSqlBuilderTest {
         datasource = "default",
         table = table,
         primaryKey = primaryKey,
+        fields = fields.map { FieldDef(it) }
+    )
+
+    private fun createEntityWithFieldDefs(
+        table: String = "products",
+        primaryKey: PrimaryKeyDef = PrimaryKeyDef("id"),
+        fields: List<FieldDef> = listOf(FieldDef("id"), FieldDef("name"), FieldDef("price"))
+    ) = EntityDef(
+        datasource = "default",
+        table = table,
+        primaryKey = primaryKey,
         fields = fields
     )
 
@@ -183,6 +194,103 @@ class EntityCrudSqlBuilderTest {
 
         assertTrue(plan.sql.contains("WHERE \"orderId\" = ?"))
         assertEquals(1, plan.params.size)
+    }
+
+    @Test
+    fun `buildListSql should emit unquoted column AS quoted name alias when they differ`() {
+        val entity = createEntityWithFieldDefs(
+            primaryKey = PrimaryKeyDef("productCode"),
+            fields = listOf(
+                FieldDef("productCode", "productcode"),
+                FieldDef("productLine", "productline")
+            )
+        )
+
+        val plan = builder.buildListSql(entity, emptyMap(), null, "ASC", 100, 0)
+
+        assertTrue(plan.sql.contains("""productcode AS "productCode""""))
+        assertTrue(plan.sql.contains("""productline AS "productLine""""))
+    }
+
+    @Test
+    fun `buildListSql should not alias when name equals column`() {
+        val entity = createEntityWithFieldDefs(
+            primaryKey = PrimaryKeyDef("id"),
+            fields = listOf(FieldDef("id", "id"), FieldDef("name", "name"))
+        )
+
+        val plan = builder.buildListSql(entity, emptyMap(), null, "ASC", 100, 0)
+
+        assertTrue(plan.sql.contains("\"id\""))
+        assertTrue(!plan.sql.contains("""AS "id""""))
+    }
+
+    @Test
+    fun `buildListSql should use unquoted physical column in WHERE filter when name differs`() {
+        val entity = createEntityWithFieldDefs(
+            primaryKey = PrimaryKeyDef("productCode"),
+            fields = listOf(
+                FieldDef("productCode", "productcode"),
+                FieldDef("productLine", "productline")
+            )
+        )
+
+        val plan = builder.buildListSql(entity, mapOf("productLine" to "Classic Cars"), null, "ASC", 100, 0)
+
+        assertTrue(plan.sql.contains("productline = ?"))
+        assertTrue(!plan.sql.contains(""""productLine" = ?"""))
+    }
+
+    @Test
+    fun `buildListSql should use unquoted physical column in ORDER BY when name differs`() {
+        val entity = createEntityWithFieldDefs(
+            primaryKey = PrimaryKeyDef("productCode"),
+            fields = listOf(
+                FieldDef("productCode", "productcode"),
+                FieldDef("productName", "productname")
+            )
+        )
+
+        val plan = builder.buildListSql(entity, emptyMap(), "productName", "DESC", 100, 0)
+
+        assertTrue(plan.sql.contains("ORDER BY productname DESC"))
+        assertTrue(!plan.sql.contains("""ORDER BY "productName""""))
+    }
+
+    @Test
+    fun `buildGetByIdSql should use unquoted physical column in WHERE when name differs`() {
+        val entity = createEntityWithFieldDefs(
+            primaryKey = PrimaryKeyDef("productCode"),
+            fields = listOf(
+                FieldDef("productCode", "productcode"),
+                FieldDef("productName", "productname")
+            )
+        )
+
+        val plan = builder.buildGetByIdSql(entity, "S10_1678")
+
+        assertTrue(plan.sql.contains("WHERE productcode = ?"))
+        assertTrue(!plan.sql.contains("""WHERE "productCode" = ?"""))
+        assertTrue(plan.sql.contains("""productcode AS "productCode""""))
+    }
+
+    @Test
+    fun `buildListSql ClassicModels products generates correct alias SQL`() {
+        val strategy = LowercaseNamingStrategy()
+        val entity = createEntityWithFieldDefs(
+            table = "products",
+            primaryKey = PrimaryKeyDef("productCode"),
+            fields = listOf("productCode", "productName", "productLine", "buyPrice", "quantityInStock")
+                .map { FieldDef(it, strategy.toPhysicalColumn(it)) }
+        )
+
+        val plan = builder.buildListSql(entity, emptyMap(), null, "ASC", 100, 0)
+
+        assertTrue(plan.sql.contains("""productcode AS "productCode""""))
+        assertTrue(plan.sql.contains("""productname AS "productName""""))
+        assertTrue(plan.sql.contains("""productline AS "productLine""""))
+        assertTrue(plan.sql.contains("""buyprice AS "buyPrice""""))
+        assertTrue(plan.sql.contains("""quantityinstock AS "quantityInStock""""))
     }
 
     @Test

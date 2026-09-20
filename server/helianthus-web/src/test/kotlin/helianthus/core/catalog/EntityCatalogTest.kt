@@ -22,7 +22,7 @@ class EntityCatalogTest {
         datasource = datasource,
         table = table,
         primaryKey = primaryKey,
-        fields = fields
+        fields = fields.map { FieldDef(it) }
     )
 
     @Test

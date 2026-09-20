@@ -35,14 +35,16 @@ interface OperationRunnerProps {
 }
 
 export function OperationRunner({ catalog, selection, api }: OperationRunnerProps) {
-  const operation = catalog.operations[selection.operationId]
-  const configuration = operation.configurations[selection.configurationId]
+  const operation = catalog.operations.find(
+    (candidate) => candidate.name === selection.operationId,
+  )
+  const configuration = operation?.configurations[selection.configurationId]
   const [format, setFormat] = useState<ResultFormat>('json')
   const [parameterValues, setParameterValues] = useState<ParameterValues>({})
   const [result, setResult] = useState<ExecutionResult | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const parameters = operation.parameters || []
+  const parameters = operation?.parameters || []
 
   const requestUrl = useMemo(() => {
     const path = `/api/op/${encodeURIComponent(selection.operationId)}/${encodeURIComponent(
@@ -115,6 +117,10 @@ export function OperationRunner({ catalog, selection, api }: OperationRunnerProp
     } finally {
       setLoading(false)
     }
+  }
+
+  if (!operation) {
+    return <Alert type="warning" showIcon message="Operation not found" />
   }
 
   return (
@@ -236,7 +242,7 @@ export function OperationRunner({ catalog, selection, api }: OperationRunnerProp
             showIcon
             message="Ready to run"
             description={`The ${selection.configurationId} configuration has ${
-              configuration.pipeline?.length ?? 0
+              configuration?.pipeline?.length ?? 0
             } pipeline step(s). Its response will appear here.`}
           />
         )}

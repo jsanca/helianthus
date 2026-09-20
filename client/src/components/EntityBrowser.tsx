@@ -23,7 +23,7 @@ import {
   Typography,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ApiError, type ApiClient } from '../api/client'
 import type { Catalog, EntitySelection } from '../types/catalog'
 
@@ -52,7 +52,9 @@ const formatValue = (value: unknown) => {
 }
 
 export function EntityBrowser({ api, catalog, selection }: EntityBrowserProps) {
-  const entity = catalog.entities[selection.entityId]
+  const entity = catalog.entities.find(
+    (candidate) => candidate.name === selection.entityId,
+  )
   const [filters, setFilters] = useState<EntityFilters>({ orderDir: 'asc' })
   const [rows, setRows] = useState<Array<Record<string, unknown>>>([])
   const [schemaFields, setSchemaFields] = useState<string[]>([])
@@ -65,62 +67,72 @@ export function EntityBrowser({ api, catalog, selection }: EntityBrowserProps) {
   const [reloadToken, setReloadToken] = useState(0)
 
   const primaryKey = entity?.primaryKey[0]
-  const fields = schemaFields.length > 0 ? schemaFields : entity?.fields ?? []
+  const fields = useMemo(
+    () => (schemaFields.length > 0 ? schemaFields : entity?.fields ?? []),
+    [entity?.fields, schemaFields],
+  )
   const hasWriteMetadata = Boolean(entity?.security?.write?.roles.length)
   const mutationUnavailableMessage = hasWriteMetadata
     ? 'Write roles exist in catalog metadata, but mutation endpoints are not available in the current backend contract.'
     : 'This entity does not advertise write access in catalog metadata.'
 
-  const loadRecords = useCallback(async () => {
+  useEffect(() => {
     if (!entity) return
 
-    setLoading(true)
-    setError(null)
-    try {
-      const params = new URLSearchParams()
-      params.set('limit', String(PAGE_SIZE))
-      params.set('offset', String(offset))
-      if (filters.orderBy) {
-        params.set('orderBy', filters.orderBy)
-        params.set('orderDir', filters.orderDir)
-      }
-      if (filters.field && filters.value) {
-        params.set(filters.field, filters.value)
-      }
+    let active = true
+    void Promise.resolve().then(async () => {
+      if (!active) return
+      setLoading(true)
+      setError(null)
+      try {
+        const params = new URLSearchParams()
+        params.set('limit', String(PAGE_SIZE))
+        params.set('offset', String(offset))
+        if (filters.orderBy) {
+          params.set('orderBy', filters.orderBy)
+          params.set('orderDir', filters.orderDir)
+        }
+        if (filters.field && filters.value) {
+          params.set(filters.field, filters.value)
+        }
 
-      const result = await api.listEntity(selection.entityId, params)
-      const nextRows = result.rows ?? []
-      setRows(nextRows)
-      setSchemaFields(
-        result.schema?.columns?.map((column) => column.name).filter(Boolean) ??
-          entity.fields,
-      )
-      setRowCount(result.metadata?.rowCount ?? nextRows.length)
-    } catch (unknownError) {
-      setRows([])
-      setRowCount(0)
-      setError(
-        unknownError instanceof ApiError
-          ? unknownError
-          : new ApiError('Entity records could not be loaded.', 'http'),
-      )
-    } finally {
-      setLoading(false)
+        const result = await api.listEntity(selection.entityId, params)
+        if (!active) return
+        const nextRows = result.rows ?? []
+        setRows(nextRows)
+        setSchemaFields(
+          result.schema?.columns?.map((column) => column.name).filter(Boolean) ??
+            entity.fields,
+        )
+        setRowCount(result.metadata?.rowCount ?? nextRows.length)
+      } catch (unknownError) {
+        if (!active) return
+        setRows([])
+        setRowCount(0)
+        setError(
+          unknownError instanceof ApiError
+            ? unknownError
+            : new ApiError('Entity records could not be loaded.', 'http'),
+        )
+      } finally {
+        if (active) setLoading(false)
+      }
+    })
+
+    return () => {
+      active = false
     }
-  }, [api, entity, filters, offset, selection.entityId])
-
-  useEffect(() => {
-    setFilters({ orderDir: 'asc' })
-    setRows([])
-    setSchemaFields([])
-    setSelectedRecord(null)
-    setOffset(0)
-    setReloadToken((value) => value + 1)
-  }, [selection.entityId])
-
-  useEffect(() => {
-    void loadRecords()
-  }, [loadRecords, reloadToken])
+  }, [
+    api,
+    entity,
+    filters.field,
+    filters.orderBy,
+    filters.orderDir,
+    filters.value,
+    offset,
+    reloadToken,
+    selection.entityId,
+  ])
 
   const visibleRows = useMemo(() => {
     const search = filters.search?.trim().toLowerCase()

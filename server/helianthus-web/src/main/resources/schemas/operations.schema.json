@@ -184,7 +184,20 @@
           },
           "fields": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "oneOf": [
+                { "type": "string" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "column": { "type": "string" }
+                  },
+                  "required": ["name"],
+                  "additionalProperties": false
+                }
+              ]
+            },
             "minItems": 1
           },
           "security": {

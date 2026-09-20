@@ -4,8 +4,8 @@ export interface Catalog {
   }
   datasources: Record<string, DatasourceDefinition>
   queries: Record<string, QueryDefinition>
-  operations: Record<string, OperationDefinition>
-  entities: Record<string, EntityDefinition>
+  operations: OperationDefinition[]
+  entities: EntityDefinition[]
 }
 
 export interface DatasourceDefinition {
@@ -25,6 +25,7 @@ export interface ParameterDefinition {
 }
 
 export interface OperationDefinition {
+  name: string
   queryRef?: string
   query?: string
   datasource?: string
@@ -64,6 +65,7 @@ export interface OperationSelection {
 }
 
 export interface EntityDefinition {
+  name: string
   label?: string
   description?: string
   datasource: string
@@ -85,3 +87,8 @@ export interface EntityRoleDefinition {
 export interface EntitySelection {
   entityId: string
 }
+
+export type ActiveCatalogSelection =
+  | ({ kind: 'operation' } & OperationSelection)
+  | ({ kind: 'entity' } & EntitySelection)
+  | { kind: 'configurations' }
