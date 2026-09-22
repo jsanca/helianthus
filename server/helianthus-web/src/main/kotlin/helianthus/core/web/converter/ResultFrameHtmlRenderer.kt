@@ -5,13 +5,19 @@ import helianthus.core.result.ResultFrame
 import org.springframework.web.util.HtmlUtils
 
 /**
- * Renders a ResultFrame as an HTML table.
+ * Renders a [ResultFrame] as an HTML document containing a single styled
+ * `<table>`.
+ *
+ * Column names and cell values are HTML-escaped via [HtmlUtils.htmlEscape].
  *
  * TODO: Consider using a template engine (Thymeleaf, Pebble) or a helper-based
  *       rendering approach for more flexible HTML generation.
  */
 class ResultFrameHtmlRenderer {
 
+    /**
+     * Renders [resultFrame] to a complete HTML document string.
+     */
     fun render(resultFrame: ResultFrame): String {
         val columns = resultFrame.schema.columns
         

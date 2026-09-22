@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs cat)",
+      "Bash(xargs ls -lS)",
+      "Bash(docker info *)",
+      "Bash(mvn -pl helianthus-web -am spring-boot:build-image -DskipTests -Dspring-boot.build-image.imageName=helianthus-server:paketo)",
+      "Bash(mvn -pl helianthus-web -am org.springframework.boot:spring-boot-maven-plugin:4.1.0:build-image -DskipTests -Dspring-boot.build-image.imageName=helianthus-server:paketo)",
+      "Bash(mvn install *)",
+      "Bash(mvn spring-boot:build-image -DskipTests -Dspring-boot.build-image.imageName=helianthus-server:paketo)",
+      "Bash(docker compose *)",
+      "Bash(chmod +x *)",
+      "Bash(mvn -pl helianthus-web -am help:describe -Dplugin=org.springframework.boot:spring-boot-maven-plugin -Dgoal=build-image)",
+      "Bash(mvn clean *)",
+      "Bash(xargs ls -la)",
+      "Bash(mvn test *)"
+    ]
+  }
+}

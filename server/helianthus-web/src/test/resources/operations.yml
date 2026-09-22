@@ -175,6 +175,21 @@ operations:
         pipeline:
           - limit: 50
 
+  # Configuration-level security (no operation-level roles)
+  config-secured:
+    label: Config Secured
+    query: SELECT PRODUCTCODE, PRODUCTNAME FROM products ORDER BY PRODUCTCODE
+    configurations:
+      default:
+        pipeline:
+          - limit: 100
+      admin-only:
+        security:
+          roles:
+            - ADMIN
+        pipeline:
+          - limit: 100
+
   # Secondary datasource operations
   customers:
     label: Customers
@@ -203,6 +218,33 @@ operations:
         pipeline:
           - limit: 1
 
+  customer-orders:
+    label: Customer Orders
+    description: View orders for a specific customer
+    datasource: secondary
+    query: SELECT o.ORDERNUMBER, o.ORDERDATE, o.STATUS, c.CUSTOMERNAME FROM orders o JOIN customers c ON o.CUSTOMERNUMBER = c.CUSTOMERNUMBER WHERE o.CUSTOMERNUMBER = ? ORDER BY o.ORDERDATE DESC
+    parameters:
+      - name: customerNumber
+        type: number
+        required: true
+        label: Customer Number
+        input:
+          kind: number
+    configurations:
+      default:
+        pipeline:
+          - limit: 50
+
+  high-value-customers:
+    label: High Value Customers
+    description: Customers with credit limit over 50000
+    datasource: secondary
+    query: SELECT CUSTOMERNUMBER, CUSTOMERNAME, CITY, COUNTRY, CREDITLIMIT FROM customers WHERE CREDITLIMIT > 50000 ORDER BY CREDITLIMIT DESC
+    configurations:
+      default:
+        pipeline:
+          - limit: 100
+
 queries:
   products.base:
     datasource: default
@@ -210,3 +252,63 @@ queries:
   productlines.base:
     datasource: default
     sql: SELECT * FROM productlines ORDER BY PRODUCTLINE
+
+entities:
+  products:
+    label: Products
+    description: Product catalog
+    datasource: default
+    table: PRODUCTS
+    primaryKey: PRODUCTCODE
+    fields:
+      - name: PRODUCTCODE
+        column: PRODUCTCODE
+      - name: PRODUCTNAME
+        column: PRODUCTNAME
+      - name: PRODUCTLINE
+        column: PRODUCTLINE
+      - name: BUYPRICE
+        column: BUYPRICE
+      - name: QUANTITYINSTOCK
+        column: QUANTITYINSTOCK
+    security:
+      read:
+        roles: [GUEST, ADMIN]
+
+  productlines:
+    label: Product Lines
+    description: Product line categories
+    datasource: default
+    table: PRODUCTLINES
+    primaryKey: PRODUCTLINE
+    fields:
+      - name: PRODUCTLINE
+        column: PRODUCTLINE
+      - name: TEXTDESCRIPTION
+        column: TEXTDESCRIPTION
+    security:
+      read:
+        roles: [GUEST, ADMIN]
+
+  customers:
+    label: Customers
+    description: Customer records from secondary database
+    datasource: default
+    table: CUSTOMERS
+    primaryKey: CUSTOMERNUMBER
+    fields:
+      - name: CUSTOMERNUMBER
+        column: CUSTOMERNUMBER
+      - name: CUSTOMERNAME
+        column: CUSTOMERNAME
+      - name: CONTACTFIRSTNAME
+        column: CONTACTFIRSTNAME
+      - name: CONTACTLASTNAME
+        column: CONTACTLASTNAME
+      - name: CITY
+        column: CITY
+      - name: COUNTRY
+        column: COUNTRY
+    security:
+      read:
+        roles: [ADMIN]

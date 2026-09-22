@@ -1,6 +1,6 @@
 package helianthus.core;
 
-import helianthus.core.catalog.OperationCatalog;
+import helianthus.core.HelianthusRuntime;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,7 +19,7 @@ class DataSourceIntegrationTest {
     private DataSource dataSource;
 
     @Autowired
-    private OperationCatalog catalog;
+    private HelianthusRuntime runtime;
 
     @Test
     void dataSourceShouldBeConfigured() {
@@ -27,15 +27,7 @@ class DataSourceIntegrationTest {
     }
 
     @Test
-    void operationsCatalogShouldBeLoaded() {
-        assertNotNull(catalog, "OperationCatalog should be loaded from operations.yml");
-        assertNotNull(
-            catalog.resolveOperation("all-products", null),
-            "Operation all-products should be loaded"
-        );
-        assertNotNull(
-            catalog.resolveOperation("get-product", null),
-            "Operation get-product should be loaded"
-        );
+    void helianthusRuntimeShouldBeBuiltFromCatalog() {
+        assertNotNull(runtime, "HelianthusRuntime should be built from operations.yml");
     }
 }

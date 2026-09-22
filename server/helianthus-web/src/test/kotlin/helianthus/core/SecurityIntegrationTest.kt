@@ -35,6 +35,12 @@ import kotlin.test.fail
     "INSERT INTO products (PRODUCTCODE, PRODUCTNAME, PRODUCTLINE, BUYPRICE, QUANTITYINSTOCK) VALUES ('P001', 'Widget', 'Classic Cars', 50.00, 100)",
     "INSERT INTO products (PRODUCTCODE, PRODUCTNAME, PRODUCTLINE, BUYPRICE, QUANTITYINSTOCK) VALUES ('P002', 'Gadget', 'Motorcycles', 75.00, 50)"
 ])
+/**
+ * End-to-end integration test for Spring Security in the web module.
+ *
+ * Validates that anonymous, role-mismatched, and properly authenticated
+ * requests receive the expected HTTP status codes (401/403/200).
+ */
 class SecurityIntegrationTest {
 
     @TestConfiguration

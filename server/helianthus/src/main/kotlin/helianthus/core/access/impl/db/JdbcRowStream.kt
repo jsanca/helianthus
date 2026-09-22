@@ -10,13 +10,27 @@ import java.sql.PreparedStatement
 import java.sql.ResultSet
 import java.sql.Types
 
-class JdbcRowStream(
+/**
+ * [CloseableRowStream] backed by a live JDBC [ResultSet].
+ *
+ * Owns the result set, its [PreparedStatement], and the [Connection]; closing
+ * the stream releases all three. Iteration is lazy and terminates the stream
+ * automatically when fully consumed.
+ *
+ * @property schema schema derived from the result set metadata
+ */
+internal class JdbcRowStream(
     override val schema: ResultSchema,
     private val resultSet: ResultSet,
     private val statement: PreparedStatement,
     private val connection: Connection
 ) : CloseableRowStream {
 
+    /**
+     * Lazy sequence that reads rows from the underlying [ResultSet]. The stream
+     * is closed automatically when iteration finishes (either by exhaustion or
+     * by an exception).
+     */
     override val rows: Sequence<Map<String, Any?>> = sequence {
         try {
             while (resultSet.next()) {
@@ -35,6 +49,9 @@ class JdbcRowStream(
     @Volatile
     private var closed = false
 
+    /**
+     * Closes the underlying result set, statement, and connection. Idempotent.
+     */
     override fun close() {
         if (!closed) {
             closed = true
@@ -44,10 +61,18 @@ class JdbcRowStream(
         }
     }
 
+    /**
+     * Returns a new [CloseableRowStream] that exposes the same rows under
+     * [newSchema], sharing this stream's close lifecycle.
+     */
     override fun withSchema(newSchema: ResultSchema): CloseableRowStream {
         return DefaultRowStream(newSchema, rows, this::close)
     }
 
+    /**
+     * Returns a new [CloseableRowStream] whose rows are produced by [transform]
+     * applied to this stream's row sequence.
+     */
     override fun transformRows(
         transform: (Sequence<Map<String, Any?>>) -> Sequence<Map<String, Any?>>
     ): CloseableRowStream {
@@ -62,6 +87,9 @@ class JdbcRowStream(
             }
         }
 
+        /**
+         * Builds a [ResultSchema] from a JDBC [ResultSet]'s metadata.
+         */
         @JvmStatic
         fun buildSchema(resultSet: ResultSet): ResultSchema {
             val metaData = resultSet.metaData
@@ -76,6 +104,9 @@ class JdbcRowStream(
             return ResultSchema(columns)
         }
 
+        /**
+         * Maps a JDBC type code from `java.sql.Types` to a [ResultType].
+         */
         fun mapJdbcType(jdbcType: Int): ResultType = when (jdbcType) {
             Types.TINYINT, Types.SMALLINT, Types.INTEGER -> ResultType.INTEGER
             Types.BIGINT -> ResultType.LONG

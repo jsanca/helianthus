@@ -1,104 +1,37 @@
 package helianthus.core.web
 
-import helianthus.core.catalog.OperationCatalog
-import helianthus.core.security.OperationPermissionEvaluator
+import helianthus.core.HelianthusRuntime
+import helianthus.core.catalog.CatalogSummary
+import helianthus.core.security.toPrincipal
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
 
+/**
+ * Exposes the runtime's catalog summary at `/api/admin/catalog`.
+ *
+ * Used by the Helianthus client UI to discover available operations and
+ * entities. Returns an empty summary when the request is unauthenticated.
+ */
 @RestController
 class CatalogController(
-    private val catalog: OperationCatalog,
-    private val permissionEvaluator: OperationPermissionEvaluator
+    private val runtime: HelianthusRuntime
 ) {
 
+    /**
+     * Returns the catalog summary scoped to the authenticated caller. An empty
+     * summary is returned when no Spring authentication is present.
+     */
     @GetMapping("/api/admin/catalog")
-    fun catalog(): CatalogResponse {
-        val auth = SecurityContextHolder.getContext().authentication
-        val visibleOps = if (auth != null) {
-            permissionEvaluator.filterVisibleOperations(auth)
-        } else {
-            emptyMap()
-        }
-
-        val operations = visibleOps.map { (name, op) ->
-            OperationSummary(
-                name = name,
-                label = op.label,
-                description = op.description,
-                datasource = op.datasource,
-                parameters = op.parameters.map { p ->
-                    ParameterInfo(
-                        name = p.name,
-                        type = p.type,
-                        required = p.required,
-                        label = p.label,
-                        description = p.description,
-                        placeholder = p.placeholder,
-                        input = p.input?.let {
-                            InputInfo(
-                                kind = it.kind,
-                                options = it.options,
-                                min = it.min,
-                                max = it.max,
-                                step = it.step
-                            )
-                        }
-                    )
-                },
-                configurations = op.configurations.map { (configName, config) ->
-                    ConfigurationSummary(
-                        name = configName,
-                        label = config.label,
-                        description = config.description
-                    )
-                }
+    fun catalog(): CatalogSummary {
+        val principal = SecurityContextHolder.getContext().authentication?.toPrincipal()
+            ?: return CatalogSummary(
+                app = null,
+                formats = emptyList(),
+                operations = emptyList(),
+                entities = emptyList()
             )
-        }
 
-        return CatalogResponse(
-            app = catalog.app?.name,
-            formats = listOf("json", "html", "csv", "xml"),
-            operations = operations
-        )
+        return runtime.catalogSummary(principal)
     }
 }
-
-data class CatalogResponse(
-    val app: String?,
-    val formats: List<String>,
-    val operations: List<OperationSummary>
-)
-
-data class OperationSummary(
-    val name: String,
-    val label: String?,
-    val description: String?,
-    val datasource: String?,
-    val parameters: List<ParameterInfo>,
-    val configurations: List<ConfigurationSummary>
-)
-
-data class ParameterInfo(
-    val name: String,
-    val type: String,
-    val required: Boolean,
-    val label: String?,
-    val description: String?,
-    val placeholder: String?,
-    val input: InputInfo?
-)
-
-data class InputInfo(
-    val kind: String,
-    val options: List<String>?,
-    val min: Number?,
-    val max: Number?,
-    val step: Number?
-)
-
-data class ConfigurationSummary(
-    val name: String,
-    val label: String?,
-    val description: String?
-)

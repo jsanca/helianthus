@@ -1,0 +1,66 @@
+TASK: HEL-KOTLIN-002
+DATE: 2026-09-20
+AGENT: clio
+
+SUMMARY
+-------
+Prepared Helianthus for runtime experimentation without touching Spring or adding Ktor.
+
+(1) Introduced a framework-neutral Principal(name, roles) and moved Spring Security's
+Authentication out of the permission evaluators; a single runtime adapter
+(SpringAuthenticationAdapter.toPrincipal) does the Spring -> Helianthus conversion.
+OperationPermissionEvaluator and EntityPermissionEvaluator now depend only on Principal.
+
+(2) Removed verified dead code: ResultFrameMarshaller, JacksonResultFrameMarshallFormatter,
+MarshallFormatterException, QueryConfigBean, QueryParameterBean,
+IncongruentColumnValueLengthException, and their marshaller test.
+
+(3) Added black-box HTTP characterization tests (30) via the JDK HttpClient, a
+framework-neutral OperationPermissionEvaluator unit test suite (15), and a ResultFrame
+JSON contract test pinning the exact wire shape.
+
+(4) Updated EntityPermissionEvaluatorTest to use Principal (dropped Spring Security test
+objects) and added a config-level security operation to the test catalog to exercise
+configuration-level roles over HTTP.
+
+Full suite: mvn clean test -> BUILD SUCCESS, 271 tests, 0 failures.
+
+FILES CHANGED
+-------------
++ server/helianthus-web/src/main/kotlin/helianthus/core/security/Principal.kt
++ server/helianthus-web/src/main/kotlin/helianthus/core/security/SpringAuthenticationAdapter.kt
++ server/helianthus-web/src/test/kotlin/helianthus/core/HttpContractCharacterizationTest.kt
++ server/helianthus-web/src/test/kotlin/helianthus/core/security/OperationPermissionEvaluatorTest.kt
++ server/helianthus-web/src/test/kotlin/helianthus/core/result/ResultFrameJsonContractTest.kt
+~ server/helianthus-web/src/main/kotlin/helianthus/core/security/OperationPermissionEvaluator.kt
+~ server/helianthus-web/src/main/kotlin/helianthus/core/security/EntityPermissionEvaluator.kt
+~ server/helianthus-web/src/main/kotlin/helianthus/core/web/HelianthusController.kt
+~ server/helianthus-web/src/main/kotlin/helianthus/core/web/EntityCrudController.kt
+~ server/helianthus-web/src/main/kotlin/helianthus/core/web/CatalogController.kt
+~ server/helianthus-web/src/test/kotlin/helianthus/core/security/EntityPermissionEvaluatorTest.kt
+~ server/helianthus-web/src/test/resources/operations.yml
+- server/helianthus-web/src/main/kotlin/helianthus/core/MarshallFormatterException.kt
+- server/helianthus-web/src/main/kotlin/helianthus/core/marshall/ResultFrameMarshaller.kt
+- server/helianthus-web/src/main/kotlin/helianthus/core/marshall/tableresult/JacksonResultFrameMarshallFormatter.kt
+- server/helianthus-web/src/main/kotlin/helianthus/core/bean/QueryConfigBean.kt
+- server/helianthus-web/src/main/kotlin/helianthus/core/bean/QueryParameterBean.kt
+- server/helianthus/src/main/kotlin/helianthus/core/IncongruentColumnValueLengthException.kt
+- server/helianthus-web/src/test/java/helianthus/core/marshall/tableresult/JacksonResultFrameMarshallFormatterTest.java
++ docs/engineering/agents/reports/HEL-KOTLIN-002.md
+~ docs/engineering/ENGINEERING_LOG.md
+
+OBSERVATIONS
+------------
+- ResultFrame JSON serializes bean properties alphabetically (metadata, rows, schema),
+  not declaration order; ResultSchema also leaks a computed "columnCount" field. Both are
+  now pinned in the contract test and HTTP goldens.
+- Row maps preserve schema-column order while bean properties are alphabetized.
+- checkPermission treats an unknown configuration as "no required roles" when the
+  operation has no op-level roles (returns true; 404 surfaces later from the catalog).
+  Pinned in a unit test.
+- Full characterization report: docs/engineering/agents/reports/HEL-KOTLIN-002.md.
+
+WARNINGS
+--------
+- No Ktor dependencies or implementations were introduced.
+- PipelineContext was intentionally left unmodified (deferred to Kotlin-native Stage 2).

@@ -15,6 +15,11 @@ import java.nio.charset.StandardCharsets
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+/**
+ * Tests [ResultFrameCsvMessageConverter] output for representative
+ * [ResultFrame]s, verifying header ordering, value formatting, and that
+ * reading CSV into a [ResultFrame] is rejected.
+ */
 class ResultFrameCsvMessageConverterTest {
 
     private val converter = ResultFrameCsvMessageConverter()

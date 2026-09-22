@@ -1,12 +1,8 @@
 package helianthus.core.web
 
-import helianthus.core.NoMappingException
-import helianthus.core.catalog.OperationCatalog
-import helianthus.core.pipeline.OperationRequest
-import helianthus.core.pipeline.PipelineContext
-import helianthus.core.pipeline.PipelineFactory
+import helianthus.core.HelianthusRuntime
 import helianthus.core.result.ResultFrame
-import helianthus.core.security.OperationPermissionEvaluator
+import helianthus.core.security.toPrincipal
 import helianthus.core.util.PathHandler
 import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
@@ -19,18 +15,27 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
 
+/**
+ * Dispatcher for catalog-backed operation endpoints under `/api/op/&#42;&#42;`.
+ *
+ * Parses the request path into `(operationId, configurationId, format)` via
+ * [PathHandler], delegates to [HelianthusRuntime.executeOperation], and emits a
+ * response in the requested format.
+ */
 @RestController
 class HelianthusController(
     private val pathHandler: PathHandler,
-    private val catalog: OperationCatalog,
-    private val pipelineFactory: PipelineFactory,
-    private val permissionEvaluator: OperationPermissionEvaluator
+    private val runtime: HelianthusRuntime
 ) {
 
     companion object {
         private val log = LoggerFactory.getLogger(HelianthusController::class.java)
     }
 
+    /**
+     * Handles `GET /api/op/&#42;&#42;`. Returns the operation's [ResultFrame] rendered
+     * as JSON, HTML, CSV, or XML depending on the path's format extension.
+     */
     @GetMapping(
         "/api/op/**",
         produces = [
@@ -54,53 +59,20 @@ class HelianthusController(
         val auth = SecurityContextHolder.getContext().authentication
             ?: throw AccessDeniedException("Not authenticated")
 
-        val username = auth.name
-        val roles = auth.authorities.map { it.authority }
+        val principal = auth.toPrincipal()
+        val username = principal.name
 
         log.debug(
             "Operation request: operationId={} configurationId={} format={} user={} roles={}",
-            operationId, configurationId, format, username, roles
+            operationId, configurationId, format, username, principal.roles
         )
 
-        // Check operation exists before checking permissions (404 vs 403)
-        if (!catalog.operations.containsKey(operationId)) {
-            throw NoMappingException("Operation not found: $operationId")
-        }
-
-        val permitted = permissionEvaluator.checkPermission(auth, operationId, configurationId)
-        log.debug(
-            "Permission check: operationId={} configurationId={} user={} permitted={}",
-            operationId, configurationId, username, permitted
-        )
-        
-        if (!permitted) {
-            throw AccessDeniedException(
-                "Access denied to operation '$operationId' configuration '$configurationId'"
-            )
-        }
-
-        val operationRequest = OperationRequest(
+        val resultFrame = runtime.executeOperation(
+            principal = principal,
             operationId = operationId,
             configurationId = configurationId,
-            format = format,
             params = extractParams(request)
         )
-
-        log.debug(
-            "Executing pipeline: operationId={} configurationId={} format={} paramCount={}",
-            operationId, configurationId, format, operationRequest.params.size
-        )
-
-        val pipeline = pipelineFactory.createPipeline(operationRequest)
-        val context = PipelineContext(operationRequest)
-        val result = pipeline.execute(context)
-
-        if (result.error != null) {
-            throw result.error!!
-        }
-
-        val resultFrame = result.resultFrame
-                ?: throw IllegalStateException("Pipeline produced no result")
 
         val duration = System.currentTimeMillis() - startTime
         log.info(

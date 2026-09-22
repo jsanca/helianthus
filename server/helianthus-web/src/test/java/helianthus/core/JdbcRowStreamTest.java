@@ -1,13 +1,18 @@
 package helianthus.core;
 
+import helianthus.core.access.DataAccessFactory;
 import helianthus.core.access.GenericDataAccess;
+import helianthus.core.access.SqlExecutionPlan;
 import helianthus.core.result.CloseableRowStream;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.jdbc.Sql;
 
+import javax.sql.DataSource;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -29,16 +34,22 @@ import static org.junit.jupiter.api.Assertions.*;
 class JdbcRowStreamTest {
 
     @Autowired
+    private DataSource dataSource;
+
     private GenericDataAccess dataAccess;
+
+    @BeforeEach
+    void setUp() {
+        dataAccess = DataAccessFactory.INSTANCE.jdbc(
+            Collections.singletonMap(GenericDataAccess.DEFAULT_DATA_SOURCE, dataSource));
+    }
 
     @Test
     void shouldStreamRowsFromDatabase() throws Exception {
         CloseableRowStream stream = dataAccess.executeQueryStream(
-                "SELECT * FROM products ORDER BY id",
-                new String[0],
+                new SqlExecutionPlan("SELECT * FROM products ORDER BY id", java.util.Collections.emptyList()),
                 GenericDataAccess.DEFAULT_DATA_SOURCE,
-                100,
-                new Object[0]);
+                100);
 
         try {
             assertNotNull(stream);
@@ -58,11 +69,9 @@ class JdbcRowStreamTest {
     @Test
     void shouldLimitRowsFromStream() throws Exception {
         CloseableRowStream stream = dataAccess.executeQueryStream(
-                "SELECT * FROM products ORDER BY id",
-                new String[0],
+                new SqlExecutionPlan("SELECT * FROM products ORDER BY id", java.util.Collections.emptyList()),
                 GenericDataAccess.DEFAULT_DATA_SOURCE,
-                100,
-                new Object[0]);
+                100);
 
         try {
             List<Map> rows = collectLimit(stream.getRows().iterator(), 2);
@@ -75,11 +84,9 @@ class JdbcRowStreamTest {
     @Test
     void shouldCloseStreamWithoutErrors() throws Exception {
         CloseableRowStream stream = dataAccess.executeQueryStream(
-                "SELECT * FROM products WHERE id = -1",
-                new String[0],
+                new SqlExecutionPlan("SELECT * FROM products WHERE id = -1", java.util.Collections.emptyList()),
                 GenericDataAccess.DEFAULT_DATA_SOURCE,
-                100,
-                new Object[0]);
+                100);
 
         stream.close();
 

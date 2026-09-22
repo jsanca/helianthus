@@ -1,7 +1,5 @@
 # AGENTS.md — Helianthus
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## What Helianthus Is
 
 A declarative backend platform: developers define SQL operations in a YAML catalog (`operations.yml`), and Helianthus automatically exposes them as HTTP endpoints returning JSON, XML, HTML, or CSV. No custom controllers needed.
@@ -21,7 +19,7 @@ server/pom.xml                    (parent POM, Spring Boot BOM)
 All Maven commands run from `server/`:
 
 ```bash
-mvn clean compile                           # compile all modules
+mvn clean compile                           # compile all modules (verification — no separate lint)
 mvn clean test                              # run all tests
 mvn clean package -DskipTests              # package without tests
 mvn clean install -DskipTests              # install into local ~/.m2
@@ -30,7 +28,11 @@ mvn test -pl helianthus-web -Dtest=StarterOperationsSmokeTest  # single test cla
 java -jar helianthus-web/target/helianthus-web-1.0.jar
 ```
 
-No separate lint step — `mvn clean compile` is the verification.
+Paketo OCI image build (from repo root):
+```bash
+scripts/build-paketo-server.sh [image-name]   # defaults to helianthus-server:paketo
+docker compose -f docker-compose.starter.yml -f docker-compose.starter.paketo.yml up
+```
 
 ## Client Commands
 
@@ -38,7 +40,7 @@ From `client/`:
 
 ```bash
 npm install && npm run dev     # development server (Vite, port 5173)
-npm run build                  # TypeScript compile + Vite build
+npm run build                  # tsc -b && vite build
 npm run lint                   # ESLint
 ```
 
@@ -51,45 +53,165 @@ java -jar helianthus-web/target/helianthus-web-1.0.jar
 curl http://localhost:8080/health
 ```
 
-Full starter stack (2× PostgreSQL + Keycloak + server + client):
+Full starter stack (2x PostgreSQL + Keycloak + server + client):
 ```bash
 docker compose -f docker-compose.starter.yml up --build
 ```
+
+Test credentials: `guest/guest` (GUEST role), `admin/admin` (ADMIN role).
+
+## Environment Variables
+
+All have sensible defaults for local dev. Override via environment or `.env`:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `HELIANTHUS_CATALOG_PATH` | `classpath:operations.yml` | Path to catalog YAML |
+| `HELIANTHUS_ALLOWED_ORIGINS` | `http://localhost:5173` | CORS allowed origins |
+| `HELIANTHUS_OIDC_ISSUER_URI` | `http://localhost:8081/realms/helianthus` | Keycloak issuer |
+| `HELIANTHUS_OIDC_JWK_SET_URI` | `...protocol/openid-connect/certs` | Keycloak JWKS |
+| `POSTGRES_HOST/PORT/DB/USER/PASSWORD` | `localhost/5432/helianthus/helianthus/helianthus` | Primary DB |
+| `POSTGRES_SECONDARY_*` | `localhost/5433/helianthus_secondary/...` | Secondary DB |
 
 ## Request Flow
 
 ```
 GET /api/op/{operationId}/{configurationId}.{format}
-  → HelianthusController
-  → PathHandler (parse URL)
-  → OperationPermissionEvaluator (check Keycloak roles)
-  → OperationCatalog (resolve from operations.yml)
-  → PipelineFactory → Pipeline
-      ResolveStep → BindStep → QueryStep → ProjectStep → FilterStep → LimitStep → ToResultFrameStep
-  → ResultFrame → message converter (JSON/XML/HTML/CSV)
+  -> HelianthusController
+  -> PathHandler (parse URL)
+  -> OperationPermissionEvaluator (check Keycloak roles)
+  -> OperationCatalog (resolve from operations.yml)
+  -> PipelineFactory -> Pipeline
+      ResolveStep -> BindStep -> QueryStep -> ProjectStep -> FilterStep -> LimitStep -> ToResultFrameStep
+  -> ResultFrame -> message converter (JSON/XML/HTML/CSV)
 ```
 
 `configurationId` defaults to `"default"` when omitted. Format extension selects the converter.
 
+`GET /api/admin/catalog` returns a JSON summary of all operations and entities visible to the authenticated user (used by the client UI).
+
+## Operations YAML Schema
+
+The catalog file (`operations.yml`) has top-level keys `app`, `datasources`, `queries`, `operations`, and `entities`. `datasources.<name>.type` is `postgres` (production) or `h2` (tests) and selects the SQL dialect; every operation/entity `datasource` value must match a key there.
+
+Each operation must define either an inline `query` or a `queryRef` pointing to the top-level `queries` block. The `queries` block lets multiple operations share SQL.
+
+```yaml
+datasources:
+  default:
+    type: postgres                  # or h2 in tests
+
+queries:                            # optional reusable queries
+  myquery.base:
+    datasource: default
+    sql: SELECT * FROM table
+
+operations:
+  operation-id:
+    label: Human Name
+    query: SELECT * FROM t WHERE id = ?   # inline SQL (or use queryRef)
+    queryRef: myquery.base                # mutually exclusive with query
+    datasource: secondary                 # overrides query-level datasource
+    security:
+      roles: [ADMIN, GUEST]
+    parameters:
+      - name: id
+        type: string | number | boolean
+        required: true | false
+        label: Display label               # optional; drives client UI
+        input:                             # optional input hint for the client
+          kind: text | number | select | boolean
+          options: [A, B, C]              # for kind: select
+          min: 0                          # for kind: number
+    configurations:
+      default:
+        pipeline:
+          - project: [col1, col2]        # column whitelist (null = all)
+          - filter:
+              col1: {gt: 50}             # operators: eq neq gt gte lt lte in
+          - limit: 100
+          - derive:
+              newCol: existingCol        # computed column aliases
+```
+
+**SQL parameter styles** — both are supported in the same codebase:
+- Positional `?`: parameters bound in declaration order; only non-null values passed.
+- Named `:paramName`: detected automatically; all parameters passed (null for missing optional ones). PostgreSQL cast `::` is not treated as a parameter.
+
+## Entities YAML Schema
+
+Entities live in the `entities` section of `operations.yml`. They provide declarative CRUD over database tables without custom SQL.
+
+```yaml
+entities:
+  products:
+    label: Products
+    description: Product catalog
+    datasource: default
+    table: products
+    primaryKey: productCode          # string, or list for composite keys
+    fields:                          # explicit whitelist of exposed columns
+      - productCode                  # plain string = name and column are identical
+      - name: productName            # or {name, column} when the physical column differs
+        column: product_name
+    security:
+      read:
+        roles: [GUEST, ADMIN]
+```
+
+**Entity endpoints:**
+- `GET /api/entities/{entityName}.{format}` — list with optional filters, pagination, sorting
+- `GET /api/entities/{entityName}/{id}.{format}` — get by primary key
+
+**Query parameters (list):** `limit` (default 100, max 1000), `offset`, `orderBy`, `orderDir` (`asc`/`desc`), plus one param per exposed field for exact-match filtering.
+
+**Rules:**
+- `primaryKey` is required (single string or list for composite keys). Note: `EntityCrudSqlBuilder.buildGetByIdSql` only uses the first PK column, so composite-key get-by-id is not actually implemented.
+- `fields` is required — explicit whitelist; omitted columns are hidden. Each entry is a plain string or `{name, column}`.
+- `primaryKey` columns must be in `fields`.
+- `datasource` must match a key in the top-level `datasources` map.
+- SQL is auto-generated by `EntityCrudSqlBuilder` via `SqlDialect` (`PostgresDialect`/`H2Dialect`); identifier quoting and LIMIT/OFFSET differ between them.
+- `security.read.roles` controls read access; omit to allow any authenticated user. `write` roles are reserved (unused).
+- `ROLE_ADMIN` always bypasses permission checks.
+
+## Security Model
+
+- `ROLE_ADMIN` always passes — no per-operation checks applied.
+- Operations with no `security.roles` are accessible to any authenticated user.
+- Roles in YAML (e.g., `ADMIN`) map to Spring authority `ROLE_ADMIN`.
+- Security can be defined at operation level and/or configuration level; both sets are unioned.
+
 ## Key Source Locations
 
 - **Entry point:** `server/helianthus-web/src/main/kotlin/helianthus/core/HelianthusApplication.kt`
-- **Main controller:** `helianthus/core/web/HelianthusController.kt`
-- **Catalog loader:** `helianthus/core/config/CatalogConfig.kt` (reads `operations.yml`)
-- **Pipeline steps:** `helianthus/core/pipeline/` — one file per step
+- **Main controller:** `server/helianthus-web/src/main/kotlin/helianthus/core/web/HelianthusController.kt`
+- **Entity CRUD controller:** `server/helianthus-web/src/main/kotlin/helianthus/core/web/EntityCrudController.kt`
+- **Catalog controller:** `server/helianthus-web/src/main/kotlin/helianthus/core/web/CatalogController.kt`
+- **Catalog loader:** `server/helianthus-web/src/main/kotlin/helianthus/core/config/CatalogConfig.kt`
+- **Catalog model + resolver:** `server/helianthus-web/src/main/kotlin/helianthus/core/catalog/OperationCatalog.kt`
+- **Entity catalog:** `server/helianthus-web/src/main/kotlin/helianthus/core/catalog/EntityCatalog.kt`
+- **Entity SQL builder:** `server/helianthus-web/src/main/kotlin/helianthus/core/catalog/EntityCrudSqlBuilder.kt`
+- **Entity path handler:** `server/helianthus-web/src/main/kotlin/helianthus/core/util/EntityPathHandler.kt`
+- **Entity permission evaluator:** `server/helianthus-web/src/main/kotlin/helianthus/core/security/EntityPermissionEvaluator.kt`
+- **SQL dialect interface:** `server/helianthus/src/main/kotlin/helianthus/core/access/SqlDialect.kt`
+- **Pipeline steps:** `server/helianthus-web/src/main/kotlin/helianthus/core/pipeline/` — one file per step
+- **Pipeline data models:** `server/helianthus-web/src/main/kotlin/helianthus/core/pipeline/PipelineModels.kt`
 - **JDBC data access:** `server/helianthus/src/main/kotlin/helianthus/core/access/impl/db/JdbcGenericDataAccess.kt`
-- **Output converters:** `helianthus/core/web/converter/` — Json, Xml, Html, Csv
-- **Security:** `helianthus/core/config/SecurityConfig.kt` + `helianthus/core/security/OperationPermissionEvaluator.kt`
+- **Named parameter SQL parser:** `server/helianthus/src/main/kotlin/helianthus/core/access/impl/db/NamedParameterSql.kt`
+- **Output converters:** `server/helianthus-web/src/main/kotlin/helianthus/core/web/converter/` — Json, Xml, Html, Csv
+- **Security:** `server/helianthus-web/src/main/kotlin/helianthus/core/config/SecurityConfig.kt` + `server/helianthus-web/src/main/kotlin/helianthus/core/security/OperationPermissionEvaluator.kt`
+- **Datasource wiring:** `server/helianthus-web/src/main/kotlin/helianthus/core/config/DataSourceConfig.kt`
 - **Operations catalog (production):** `server/helianthus-web/src/main/resources/operations.yml`
 - **Operations catalog (test):** `server/helianthus-web/src/test/resources/operations.yml`
 - **Starter catalog + seed data:** `samples/starter/`
 
 ## Testing
 
-- JUnit Jupiter via `spring-boot-starter-test`; H2 in-memory (`jdbc:h2:mem:helianthus`) for test database
-- Integration tests use `@SpringBootTest` + `@Sql` for schema/data setup
-- `server/helianthus-web/src/test/resources/application.properties` configures the H2 URL
-- Production `operations.yml` and test `operations.yml` must stay in sync on catalog shape (test version uses H2-compatible SQL)
+- JUnit Jupiter via `spring-boot-starter-test`; H2 in-memory for both datasources in tests.
+- Integration tests use `@SpringBootTest` + `@Sql` for schema/data setup.
+- `server/helianthus-web/src/test/resources/application.properties` sets H2 URLs and disables OAuth2 (`helianthus.security.oauth2.enabled=false`).
+- Production `operations.yml` and test `operations.yml` must stay in sync on catalog shape (test version uses H2-compatible SQL and `type: h2`).
+- Test sources live in both `src/test/kotlin` (most) and `src/test/java` (a few legacy suites); both compile.
 
 ## Technology Baseline
 
@@ -105,19 +227,24 @@ Do not introduce: WebFlux, R2DBC, cloud functions, LLM/DSL features.
 ## Important Gotchas
 
 - Kotlin sources live in `src/main/kotlin` — the `kotlin-maven-plugin` does not compile files placed under `src/main/java`.
-- The `.gitignore` is minimal and does not exclude `.env`, `.idea/`, or `target/`.
-- `Context.java`, `ContextUtils.java`, `SpringContextImpl.java` in `helianthus-core` are dead code from before the Kotlin migration.
-- Multi-datasource wiring is in `DataSourceConfig.kt`; datasource names in `operations.yml` must match the bean names registered there.
+- The `.gitignore` does not exclude `.env` — be careful with secrets.
+- Kotlin `jvmTarget` is 21 while `java.version` is 25 — this is intentional, do not "fix" it.
+- Datasource bean names in `DataSourceConfig.kt` are `"default"` and `"secondary"` (map keys) — the `datasource` field in `operations.yml` must match exactly. The Spring bean methods are `primaryDataSource()` and `secondaryDataSource()`.
+- The secondary datasource runs on port 5433 by default (separate PostgreSQL instance).
+- `kotlin-maven-allopen` with the `spring` compiler plugin is enabled — Spring proxying works without `open` keyword on classes/methods.
+- No CI workflows exist in `.github/workflows/`.
 
 ## Logging
 
-Use SLF4J. Log startup decisions at INFO, query execution and incoming requests at DEBUG, failures at ERROR. Prefer structured context fields: `operationId`, `configurationId`, `format`, `datasource`, `durationMs`, `rowCount`. Never log passwords, tokens, or raw SQL parameters containing private data.
+Use SLF4J. Log startup decisions at INFO, query execution and incoming requests at DEBUG, failures at ERROR. `RequestLoggingFilter` sets MDC context per request (`requestId` from `X-Request-ID` header or generated, `user`, `operationId`, `configurationId`, `format`); prefer these plus `datasource`, `durationMs`, `rowCount`. Never log passwords, tokens, or raw SQL parameters containing private data.
 
-## Commit Style
+<!-- OSK:BEGIN -->
 
-```
-build: add Spring Boot dependency management
-test: add smoke tests for secondary datasource operations
-web: expose catalog endpoint
-core: add named-parameter SQL support
-```
+## OSK Workspace
+
+Read:
+
+- `docs/PROJECT.md`
+- `docs/OSK.md`
+
+<!-- OSK:END -->

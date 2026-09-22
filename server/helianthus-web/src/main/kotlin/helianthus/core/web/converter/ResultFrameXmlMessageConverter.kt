@@ -12,21 +12,35 @@ import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.http.converter.HttpMessageNotWritableException
 import java.io.IOException
 
+/**
+ * Spring HTTP message converter that serializes a [ResultFrame] as
+ * `application/xml`.
+ *
+ * Column names are sanitized to be valid XML tag names (letters/digits/`_`/`-`/`.`,
+ * and prefixed with `_` if they would otherwise start with a digit, `-`, or `.`).
+ * Reading XML into a [ResultFrame] is not supported.
+ */
 class ResultFrameXmlMessageConverter : AbstractHttpMessageConverter<ResultFrame>(MediaType.APPLICATION_XML) {
 
     private val log = LoggerFactory.getLogger(ResultFrameXmlMessageConverter::class.java)
     private val xmlMapper = XmlMapper()
 
+    /** Only supports serializing [ResultFrame] instances. */
     override fun supports(clazz: Class<*>): Boolean {
         return ResultFrame::class.java.isAssignableFrom(clazz)
     }
 
+    /**
+     * Writes the [ResultFrame] as XML to the response body. The output is a
+     * `<root>` document containing a `<metadata>` element (with `rowCount`) and
+     * a `<rows>` element with one `<row>` child per row.
+     */
     @Throws(HttpMessageNotWritableException::class, IOException::class)
     override fun writeInternal(resultFrame: ResultFrame, outputMessage: HttpOutputMessage) {
         log.debug("Writing ResultFrame as XML: {} rows", resultFrame.metadata.rowCount)
-        
+
         val columns = resultFrame.schema.columns
-        
+
         // Transform ResultFrame to a structure suitable for XML serialization
         // with sanitized column names as XML tags
         val xmlStructure = mapOf(
@@ -40,18 +54,21 @@ class ResultFrameXmlMessageConverter : AbstractHttpMessageConverter<ResultFrame>
                 mapOf("row" to sanitizedRow)
             }
         )
-        
+
         xmlMapper.writeValue(outputMessage.body, xmlStructure)
     }
 
     /**
-     * Sanitizes a string to be used as an XML tag name.
-     * XML tag names must start with a letter or underscore, and can only contain
-     * letters, digits, hyphens, underscores, and periods.
+     * Sanitizes [name] for use as an XML tag name.
+     *
+     * Allowed characters are letters, digits, `_`, `-`, and `.`; spaces and any
+     * other characters become `_`. The result is prefixed with `_` if it would
+     * otherwise start with a digit, `-`, or `.` (none of which are valid XML tag
+     * name leading characters).
      */
     private fun sanitizeXmlTagName(name: String): String {
         if (name.isEmpty()) return "_"
-        
+
         val sanitized = buildString {
             name.forEachIndexed { index, char ->
                 when {
@@ -62,7 +79,7 @@ class ResultFrameXmlMessageConverter : AbstractHttpMessageConverter<ResultFrame>
                 }
             }
         }
-        
+
         // XML tag names cannot start with a digit, hyphen, or period
         return if (sanitized[0].isDigit() || sanitized[0] == '-' || sanitized[0] == '.') {
             "_$sanitized"
@@ -71,6 +88,7 @@ class ResultFrameXmlMessageConverter : AbstractHttpMessageConverter<ResultFrame>
         }
     }
 
+    /** Always throws — reading [ResultFrame] from XML is not supported. */
     @Throws(HttpMessageNotReadableException::class, IOException::class)
     override fun readInternal(clazz: Class<out ResultFrame>, inputMessage: HttpInputMessage): ResultFrame {
         throw UnsupportedOperationException("Reading ResultFrame from XML is not supported")

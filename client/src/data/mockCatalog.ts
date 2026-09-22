@@ -19,8 +19,9 @@ export const mockCatalog: Catalog = {
       sql: 'SELECT * FROM classicmodels.productlines',
     },
   },
-  operations: {
-    'all-products': {
+  operations: [
+    {
+      name: 'all-products',
       query: 'SELECT * FROM classicmodels.products',
       configurations: {
         default: {
@@ -28,7 +29,8 @@ export const mockCatalog: Catalog = {
         },
       },
     },
-    'all-productlines': {
+    {
+      name: 'all-productlines',
       query: 'SELECT * FROM classicmodels.productlines',
       configurations: {
         default: {
@@ -36,7 +38,8 @@ export const mockCatalog: Catalog = {
         },
       },
     },
-    'get-product': {
+    {
+      name: 'get-product',
       query: 'SELECT * FROM classicmodels.products WHERE productCode = ?',
       parameters: [
         {
@@ -51,7 +54,8 @@ export const mockCatalog: Catalog = {
         },
       },
     },
-    products: {
+    {
+      name: 'products',
       queryRef: 'products.base',
       configurations: {
         default: {
@@ -72,5 +76,56 @@ export const mockCatalog: Catalog = {
         },
       },
     },
-  },
+  ],
+  entities: [
+    {
+      name: 'products',
+      label: 'Product',
+      description: 'Product catalog records.',
+      datasource: 'default',
+      table: 'products',
+      primaryKey: ['productCode'],
+      fields: [
+        'productCode',
+        'productName',
+        'productLine',
+        'buyPrice',
+        'quantityInStock',
+      ],
+      security: {
+        read: { roles: ['GUEST', 'ADMIN'] },
+      },
+    },
+    {
+      name: 'productlines',
+      label: 'Product Line',
+      description: 'Product line categories.',
+      datasource: 'default',
+      table: 'productlines',
+      primaryKey: ['productLine'],
+      fields: ['productLine', 'textDescription'],
+      security: {
+        read: { roles: ['GUEST', 'ADMIN'] },
+      },
+    },
+    {
+      name: 'customers',
+      label: 'Customer',
+      description: 'Customer records from the secondary datasource.',
+      datasource: 'secondary',
+      table: 'customers',
+      primaryKey: ['customerNumber'],
+      fields: [
+        'customerNumber',
+        'customerName',
+        'contactFirstName',
+        'contactLastName',
+        'city',
+        'country',
+      ],
+      security: {
+        read: { roles: ['ADMIN'] },
+      },
+    },
+  ],
 }

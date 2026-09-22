@@ -1,0 +1,48 @@
+TASK: HEL-KOTLIN-001
+DATE: 2026-09-20
+AGENT: clio
+
+SUMMARY
+-------
+Produced an evidence-based architecture assessment of Helianthus to answer whether a
+Ktor migration is justified, without modifying any production code. Read the full
+backend (helianthus-core + helianthus-web), build config (Maven POMs, application.yml,
+Dockerfiles, Paketo scripts), test suites, and the OSK docs (knowledge, ADR, phase
+migration inventory, CRUD design).
+
+Key findings: helianthus-core (~737 LOC) is already framework-independent (only
+javax.sql.DataSource + SLF4J). ~60% of production LOC is framework-independent logic.
+Spring's heavyweight features (transactions, async, scheduling, caching, JdbcTemplate,
+ORM) are unused; the data layer is raw JDBC. The deepest Spring coupling is Spring
+Security's Authentication type reaching three files (two permission evaluators + the
+controller layer). Identified dead code (marshall package, QueryConfigBean/QueryParameterBean,
+IncongruentColumnValueLengthException) and two test gaps (OperationPermissionEvaluator,
+JSON serialization contract).
+
+Recommendation: INVESTIGATE, gated by three spikes (blocking-JDBC-vs-coroutines model,
+Keycloak JWT on ktor-server-auth-jwt, four-format responder stack). Gardening/characterization
+work (HTTP golden fixtures, Principal/roles abstraction, dead-code removal) should begin
+immediately regardless of the final decision.
+
+FILES CHANGED
+-------------
++ docs/engineering/agents/reports/HEL-KOTLIN-001.md
+~ docs/engineering/ENGINEERING_LOG.md
++ agents-reports/report-HEL-KOTLIN-001-clio.txt
+
+OBSERVATIONS
+------------
+- The full assessment is in docs/engineering/agents/reports/HEL-KOTLIN-001.md (14 sections).
+- JSON output is currently produced by Spring Boot's auto Jackson converter, not by the
+  "marshaller" package (marshall/ is dead code).
+- No OperationPermissionEvaluator unit test exists; operation permission logic is only
+  covered indirectly via smoke/security integration suites.
+- Report placed under docs/engineering/agents/reports/ per the OSK convention; the
+  ENGINEERING_LOG index row was added.
+
+WARNINGS
+--------
+- No benchmarks were run (per task constraints); native-image/CRaC/throughput claims are
+  marked as hypotheses.
+- No tests or production code were changed; the gardening/preparation items in the report
+  are not implemented.

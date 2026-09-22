@@ -1,8 +1,10 @@
 package helianthus.core.web
 
+import helianthus.core.EntityNotFoundException
 import helianthus.core.InvalidParameterException
 import helianthus.core.NoMappingException
 import helianthus.core.exception.InvalidOperationPathException
+import helianthus.core.security.AccessDeniedException as HelianthusAccessDeniedException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -53,6 +55,20 @@ class HelianthusExceptionHandler {
     }
 
     /**
+     * Handles entities that are not found in the catalog.
+     *
+     * @param ex the entity not found exception
+     * @return 404 Not Found with the entity message
+     */
+    @ExceptionHandler(EntityNotFoundException::class)
+    fun handleEntityNotFound(ex: EntityNotFoundException): ResponseEntity<String> {
+        log.warn("Entity not found: {}", ex.message)
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .contentType(MediaType.TEXT_PLAIN)
+            .body(ex.message)
+    }
+
+    /**
      * Handles parameter validation errors.
      *
      * @param ex the parameter exception
@@ -66,8 +82,25 @@ class HelianthusExceptionHandler {
             .body(ex.message)
     }
 
+    /**
+     * Handles Spring's [AccessDeniedException] (typically thrown by Spring
+     * Security at the filter chain) by returning 403 Forbidden.
+     */
     @ExceptionHandler(AccessDeniedException::class)
     fun handleAccessDenied(ex: AccessDeniedException): ResponseEntity<String> {
+        log.warn("Access denied: {}", ex.message)
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .contentType(MediaType.TEXT_PLAIN)
+            .body("Access denied")
+    }
+
+    /**
+     * Handles Helianthus's framework-neutral [HelianthusAccessDeniedException]
+     * (raised by the runtime when a caller fails a permission check) by
+     * returning 403 Forbidden.
+     */
+    @ExceptionHandler(HelianthusAccessDeniedException::class)
+    fun handleHelianthusAccessDenied(ex: HelianthusAccessDeniedException): ResponseEntity<String> {
         log.warn("Access denied: {}", ex.message)
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
             .contentType(MediaType.TEXT_PLAIN)

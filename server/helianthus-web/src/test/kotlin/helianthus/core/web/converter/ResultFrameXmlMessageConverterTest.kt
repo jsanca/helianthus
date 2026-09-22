@@ -12,6 +12,12 @@ import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import kotlin.test.assertTrue
 
+/**
+ * Tests [ResultFrameXmlMessageConverter] output: metadata/rows structure,
+ * tag-name sanitization for columns that start with digits or contain
+ * invalid characters, and that reading XML into a [ResultFrame] is
+ * rejected.
+ */
 class ResultFrameXmlMessageConverterTest {
 
     private val converter = ResultFrameXmlMessageConverter()
