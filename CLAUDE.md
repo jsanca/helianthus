@@ -258,3 +258,14 @@ test: add smoke tests for secondary datasource operations
 web: expose catalog endpoint
 core: add named-parameter SQL support
 ```
+
+<!-- OSK:BEGIN -->
+
+## OSK Workspace
+
+Read:
+
+- `docs/PROJECT.md`
+- `docs/OSK.md`
+
+<!-- OSK:END -->

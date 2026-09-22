@@ -12,6 +12,11 @@ import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import kotlin.test.assertTrue
 
+/**
+ * Tests [ResultFrameHtmlMessageConverter] output: presence of header cells,
+ * row data, metadata caption, HTML escaping of cell values, and that
+ * reading HTML into a [ResultFrame] is rejected.
+ */
 class ResultFrameHtmlMessageConverterTest {
 
     private val converter = ResultFrameHtmlMessageConverter()

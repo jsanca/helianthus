@@ -83,7 +83,7 @@
         <!-- Helianthus -->
         <dependency>
             <groupId>helianthus</groupId>
-            <artifactId>helianthus-core</artifactId>
+            <artifactId>helianthus-runtime</artifactId>
             <version>${project.version}</version>
         </dependency>
 

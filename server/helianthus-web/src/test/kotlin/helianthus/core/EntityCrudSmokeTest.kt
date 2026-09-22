@@ -39,6 +39,13 @@ import kotlin.test.assertTrue
     "CREATE TABLE customers (CUSTOMERNUMBER INTEGER PRIMARY KEY, CUSTOMERNAME VARCHAR(100), CONTACTFIRSTNAME VARCHAR(50), CONTACTLASTNAME VARCHAR(50), CITY VARCHAR(50), COUNTRY VARCHAR(50))",
     "INSERT INTO customers (CUSTOMERNUMBER, CUSTOMERNAME, CONTACTFIRSTNAME, CONTACTLASTNAME, CITY, COUNTRY) VALUES (103, 'Atelier graphique', 'John', 'Doe', 'Nantes', 'France')"
 ])
+/**
+ * Spring Boot smoke test for the `/api/entities/&#42;&#42;` endpoints.
+ *
+ * Boots the full web context against an H2 database, seeds the `products`
+ * table via `@Sql`, and exercises list, get-by-id, and not-found paths as
+ * both `guest` and `admin` users.
+ */
 class EntityCrudSmokeTest {
 
     @TestConfiguration

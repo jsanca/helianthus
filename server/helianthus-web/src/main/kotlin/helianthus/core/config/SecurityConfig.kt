@@ -16,6 +16,13 @@ import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 
+/**
+ * Spring Security configuration for the web module.
+ *
+ * Wires the JWT resource server, CORS, and request authorization rules.
+ * Health endpoints are public; `/api/&#42;&#42;` is `authenticated` when OAuth2 is
+ * enabled and `permitAll` otherwise (used by tests).
+ */
 @Configuration
 @EnableWebSecurity
 class SecurityConfig(
@@ -27,6 +34,12 @@ class SecurityConfig(
     private val allowedOrigins: List<String>
 ) {
 
+    /**
+     * Configures the [SecurityFilterChain]: health endpoints public,
+     * `/api/&#42;&#42;` authenticated (or public when OAuth2 is disabled),
+     * stateless sessions, CORS enabled, CSRF disabled, and JWT validation
+     * wired when configured.
+     */
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http
@@ -58,6 +71,10 @@ class SecurityConfig(
         return http.build()
     }
 
+    /**
+     * CORS configuration restricted to `GET` and `OPTIONS`, allowing credentials
+     * to be excluded and exposing `Content-Type` to clients.
+     */
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
         val configuration = CorsConfiguration().apply {

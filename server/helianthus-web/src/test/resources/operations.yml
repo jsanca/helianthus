@@ -175,6 +175,21 @@ operations:
         pipeline:
           - limit: 50
 
+  # Configuration-level security (no operation-level roles)
+  config-secured:
+    label: Config Secured
+    query: SELECT PRODUCTCODE, PRODUCTNAME FROM products ORDER BY PRODUCTCODE
+    configurations:
+      default:
+        pipeline:
+          - limit: 100
+      admin-only:
+        security:
+          roles:
+            - ADMIN
+        pipeline:
+          - limit: 100
+
   # Secondary datasource operations
   customers:
     label: Customers

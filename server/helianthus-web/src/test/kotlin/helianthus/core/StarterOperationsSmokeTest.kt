@@ -51,6 +51,12 @@ import kotlin.test.fail
     "INSERT INTO orders (ORDERNUMBER, ORDERDATE, REQUIREDDATE, SHIPPEDDATE, STATUS, CUSTOMERNUMBER) VALUES (10100, '2003-01-06', '2003-01-13', '2003-01-10', 'Shipped', 103)",
     "INSERT INTO orders (ORDERNUMBER, ORDERDATE, REQUIREDDATE, SHIPPEDDATE, STATUS, CUSTOMERNUMBER) VALUES (10101, '2003-01-09', '2003-01-18', '2003-01-11', 'Shipped', 112)"
 ])
+/**
+ * Smoke test for the starter catalog's operations (multi-datasource,
+ * multi-configuration, named-parameter SQL) covering format negotiation
+ * (json, html, csv, xml) and error responses for missing operations,
+ * unknown entities, and authorization failures.
+ */
 class StarterOperationsSmokeTest {
 
     @TestConfiguration

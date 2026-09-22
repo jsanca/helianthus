@@ -12,10 +12,23 @@ import java.sql.ResultSet
 import java.sql.SQLException
 import javax.sql.DataSource
 
-class JdbcGenericDataAccess(
+/**
+ * JDBC-backed implementation of [GenericDataAccess].
+ *
+ * Opens a connection, prepares the SQL, binds parameters, executes the query,
+ * and hands ownership of the connection/statement/result set to a [JdbcRowStream]
+ * which closes them when the stream is closed (or when iteration finishes).
+ *
+ * @property dataSources named JDBC datasources keyed by their catalog name
+ */
+internal class JdbcGenericDataAccess(
     private val dataSources: Map<String, DataSource>
 ) : GenericDataAccess {
 
+    /**
+     * Executes [plan] against the requested datasource and returns a streaming
+     * result. See [GenericDataAccess.executeQueryStream] for parameter details.
+     */
     override fun executeQueryStream(
         plan: SqlExecutionPlan,
         dataSource: String,
@@ -64,7 +77,9 @@ class JdbcGenericDataAccess(
     }
 
     companion object {
+        /** Default JDBC fetch size when the caller does not supply one. */
         private const val DEFAULT_FETCH_SIZE = 1000
+
         private val log = LoggerFactory.getLogger(JdbcGenericDataAccess::class.java)
 
         private fun closeQuiet(vararg closeables: AutoCloseable?) {

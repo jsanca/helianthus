@@ -6,8 +6,19 @@ import java.sql.PreparedStatement
 import java.sql.Timestamp
 import java.sql.Types
 
-object JdbcParamBinder {
+/**
+ * Binds parameter values to a JDBC [PreparedStatement] according to their
+ * declared [ResultType].
+ *
+ * Performs best-effort coercion from common Kotlin/Java scalar types to the
+ * target JDBC type and falls back to `setObject` for [ResultType.UNKNOWN].
+ */
+internal object JdbcParamBinder {
 
+    /**
+     * Binds [value] at the 1-based [index] of [statement] using [type] to
+     * select the appropriate setter. Null values are bound as typed NULL.
+     */
     fun bind(statement: PreparedStatement, index: Int, value: Any?, type: ResultType) {
         if (value == null) {
             bindNull(statement, index, type)

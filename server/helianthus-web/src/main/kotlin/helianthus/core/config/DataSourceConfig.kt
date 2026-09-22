@@ -10,11 +10,21 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Primary
 import javax.sql.DataSource
 
+/**
+ * Wires HikariCP-backed JDBC datasources for the runtime.
+ *
+ * Exposes two named datasources, `default` (primary, marked `@Primary`) and
+ * `secondary`, plus a `dataSources` map keyed by the same names that the
+ * runtime consumes.
+ */
 @Configuration
 class DataSourceConfig {
 
     private val log = LoggerFactory.getLogger(DataSourceConfig::class.java)
 
+    /**
+     * The primary datasource. Bound to the `default` catalog key.
+     */
     @Bean
     @Primary
     fun primaryDataSource(
@@ -39,6 +49,9 @@ class DataSourceConfig {
         return HikariDataSource(config)
     }
 
+    /**
+     * The secondary datasource. Bound to the `secondary` catalog key.
+     */
     @Bean
     fun secondaryDataSource(
         @Value("\${spring.datasource-secondary.url}") url: String,
@@ -62,6 +75,10 @@ class DataSourceConfig {
         return HikariDataSource(config)
     }
 
+    /**
+     * Exposes both datasources as a map keyed by their catalog name (`default`,
+     * `secondary`). Consumed by the Helianthus runtime builder.
+     */
     @Bean
     fun dataSources(
         @Qualifier("primaryDataSource") primaryDataSource: DataSource,

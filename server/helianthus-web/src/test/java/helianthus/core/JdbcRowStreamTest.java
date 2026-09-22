@@ -1,14 +1,18 @@
 package helianthus.core;
 
+import helianthus.core.access.DataAccessFactory;
 import helianthus.core.access.GenericDataAccess;
 import helianthus.core.access.SqlExecutionPlan;
 import helianthus.core.result.CloseableRowStream;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.jdbc.Sql;
 
+import javax.sql.DataSource;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -30,7 +34,15 @@ import static org.junit.jupiter.api.Assertions.*;
 class JdbcRowStreamTest {
 
     @Autowired
+    private DataSource dataSource;
+
     private GenericDataAccess dataAccess;
+
+    @BeforeEach
+    void setUp() {
+        dataAccess = DataAccessFactory.INSTANCE.jdbc(
+            Collections.singletonMap(GenericDataAccess.DEFAULT_DATA_SOURCE, dataSource));
+    }
 
     @Test
     void shouldStreamRowsFromDatabase() throws Exception {

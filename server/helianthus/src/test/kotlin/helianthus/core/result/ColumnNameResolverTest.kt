@@ -5,6 +5,10 @@ import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
+/**
+ * Tests [ColumnNameResolver]'s case-insensitive column lookups against a
+ * schema and row map, including missing-column error cases.
+ */
 class ColumnNameResolverTest {
 
     private val schema = ResultSchema(listOf(
